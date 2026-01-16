@@ -1,11 +1,33 @@
-__pycache__/
-*.py
-*.md
-
-.venv/
-venv/
-.env__pycache__/
+# Python cache
+    __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.md
+# Virtual environments
 .venv/
 venv/
+env/
+
+# Environment variables
 .env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
