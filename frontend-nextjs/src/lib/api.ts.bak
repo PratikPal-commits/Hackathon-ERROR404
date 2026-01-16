@@ -1,0 +1,392 @@
+import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
+import {
+  ApiResponse,
+  User,
+  Student,
+  StudentCreateInput,
+  Course,
+  CourseCreateInput,
+  Session,
+  SessionCreateInput,
+  Attendance,
+  AttendanceMarkInput,
+  Anomaly,
+  DashboardStats,
+  CourseAnalytics,
+  StudentAttendanceReport,
+  EnrollmentResult,
+  LoginInput,
+  RegisterInput,
+  PaginatedResponse,
+  VerificationResult,
+  KioskSession,
+} from '@/types';
+
+// Token storage keys
+const TOKEN_KEY = 'access_token';
+const USER_KEY = 'user_data';
+
+// Helper functions for token management
+export const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(TOKEN_KEY);
+};
+
+export const setToken = (token: string): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(TOKEN_KEY, token);
+  }
+};
+
+export const removeToken = (): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  }
+};
+
+export const getStoredUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+  const userData = localStorage.getItem(USER_KEY);
+  return userData ? JSON.parse(userData) : null;
+};
+
+export const setStoredUser = (user: User): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+};
+
+// Create axios instance
+const api: AxiosInstance = axios.create({
+  baseURL: '/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response: AxiosResponse) => response,
+  (error: AxiosError<{ detail?: string }>) => {
+    if (error.response?.status === 401) {
+      // Clear token and redirect to login
+      removeToken();
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login') && !window.location.pathname.includes('/kiosk')) {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth API
+export const authApi = {
+  login: async (data: LoginInput): Promise<User> => {
+    console.log('[Auth] Login attempt for:', data.email);
+    const response = await api.post<{ access_token: string; token_type: string; expires_in: number }>('/auth/login', data);
+    console.log('[Auth] Login response:', response.data);
+    const { access_token } = response.data;
+    
+    // Store token
+    setToken(access_token);
+    
+    // Fetch user info
+    console.log('[Auth] Fetching user info...');
+    const user = await authApi.getCurrentUser();
+    console.log('[Auth] User info:', user);
+    if (!user) {
+      throw new Error('Failed to get user info');
+    }
+    
+    return user;
+  },
+
+  logout: async (): Promise<void> => {
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      removeToken();
+    }
+  },
+
+  register: async (data: RegisterInput): Promise<User> => {
+    const response = await api.post<User>('/auth/register', data);
+    return response.data;
+  },
+
+  getCurrentUser: async (): Promise<User | null> => {
+    const token = getToken();
+    if (!token) return null;
+    
+    try {
+      const response = await api.get<User>('/auth/me');
+      const user = response.data;
+      setStoredUser(user);
+      return user;
+    } catch {
+      removeToken();
+      return null;
+    }
+  },
+};
+
+// Students API
+export const studentsApi = {
+  getAll: async (params?: { department?: string; semester?: number; search?: string }): Promise<Student[]> => {
+    const response = await api.get<{ students: Student[] }>('/students', { params });
+    return response.data.students || [];
+  },
+
+  getById: async (id: number): Promise<Student> => {
+    const response = await api.get<Student>(`/students/${id}`);
+    return response.data;
+  },
+
+  getByRollNumber: async (rollNumber: string): Promise<Student> => {
+    const response = await api.get<Student>(`/students/roll/${rollNumber}`);
+    return response.data;
+  },
+
+  create: async (data: StudentCreateInput): Promise<Student> => {
+    const response = await api.post<Student>('/students', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: Partial<StudentCreateInput>): Promise<Student> => {
+    const response = await api.put<Student>(`/students/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/students/${id}`);
+  },
+
+  getQRCode: async (id: number): Promise<string> => {
+    const response = await api.get<{ qr_code: string }>(`/students/${id}/qr-code`);
+    return response.data.qr_code;
+  },
+
+  getAttendanceReport: async (id: number): Promise<StudentAttendanceReport> => {
+    const response = await api.get<StudentAttendanceReport>(`/students/${id}/attendance`);
+    return response.data;
+  },
+};
+
+// Courses API
+export const coursesApi = {
+  getAll: async (params?: { department?: string; semester?: number }): Promise<Course[]> => {
+    const response = await api.get<{ courses: Course[] }>('/courses', { params });
+    return response.data.courses || [];
+  },
+
+  getById: async (id: number): Promise<Course> => {
+    const response = await api.get<Course>(`/courses/${id}`);
+    return response.data;
+  },
+
+  create: async (data: CourseCreateInput): Promise<Course> => {
+    const response = await api.post<Course>('/courses', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: Partial<CourseCreateInput>): Promise<Course> => {
+    const response = await api.put<Course>(`/courses/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/courses/${id}`);
+  },
+
+  getStudents: async (id: number): Promise<Student[]> => {
+    const response = await api.get<{ students: Student[] }>(`/courses/${id}/students`);
+    return response.data.students || [];
+  },
+
+  enrollStudent: async (courseId: number, studentId: number): Promise<void> => {
+    await api.post(`/courses/${courseId}/students/${studentId}`);
+  },
+
+  unenrollStudent: async (courseId: number, studentId: number): Promise<void> => {
+    await api.delete(`/courses/${courseId}/students/${studentId}`);
+  },
+
+  getAnalytics: async (id: number): Promise<CourseAnalytics> => {
+    const response = await api.get<CourseAnalytics>(`/courses/${id}/analytics`);
+    return response.data;
+  },
+};
+
+// Sessions API
+export const sessionsApi = {
+  getAll: async (params?: { course_id?: number; status?: string; date?: string }): Promise<Session[]> => {
+    const response = await api.get<{ sessions: Session[] }>('/sessions', { params });
+    return response.data.sessions || [];
+  },
+
+  getById: async (id: number): Promise<Session> => {
+    const response = await api.get<Session>(`/sessions/${id}`);
+    return response.data;
+  },
+
+  create: async (data: SessionCreateInput): Promise<Session> => {
+    const response = await api.post<Session>('/sessions', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: Partial<SessionCreateInput>): Promise<Session> => {
+    const response = await api.put<Session>(`/sessions/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/sessions/${id}`);
+  },
+
+  activate: async (id: number): Promise<{ attendance_code: string }> => {
+    const response = await api.post<{ attendance_code: string }>(`/sessions/${id}/activate`);
+    return response.data;
+  },
+
+  deactivate: async (id: number): Promise<void> => {
+    await api.post(`/sessions/${id}/deactivate`);
+  },
+
+  getByCode: async (code: string): Promise<KioskSession> => {
+    const response = await api.get<KioskSession>(`/sessions/code/${code}`);
+    return response.data;
+  },
+
+  getAttendance: async (id: number): Promise<Attendance[]> => {
+    const response = await api.get<{ attendances: Attendance[] }>(`/sessions/${id}/attendance`);
+    return response.data.attendances || [];
+  },
+};
+
+// Attendance API
+export const attendanceApi = {
+  mark: async (data: AttendanceMarkInput): Promise<VerificationResult> => {
+    const response = await api.post<VerificationResult>('/attendance/mark', data);
+    return response.data;
+  },
+
+  getBySession: async (sessionId: number): Promise<Attendance[]> => {
+    const response = await api.get<{ attendances: Attendance[] }>(`/attendance/session/${sessionId}`);
+    return response.data.attendances || [];
+  },
+
+  getByStudent: async (studentId: number, params?: { course_id?: number }): Promise<Attendance[]> => {
+    const response = await api.get<{ attendances: Attendance[] }>(`/attendance/student/${studentId}`, { params });
+    return response.data.attendances || [];
+  },
+
+  markManual: async (sessionId: number, studentId: number, status: string, notes?: string): Promise<Attendance> => {
+    const response = await api.post<Attendance>('/attendance/manual', {
+      session_id: sessionId,
+      student_id: studentId,
+      status,
+      notes,
+    });
+    return response.data;
+  },
+
+  update: async (id: number, data: { status: string; notes?: string }): Promise<Attendance> => {
+    const response = await api.put<Attendance>(`/attendance/${id}`, data);
+    return response.data;
+  },
+};
+
+// Enrollment API
+export const enrollmentApi = {
+  enrollFace: async (studentId: number, faceImages: string[]): Promise<EnrollmentResult> => {
+    const response = await api.post<EnrollmentResult>(`/students/${studentId}/enroll/face`, {
+      images: faceImages,
+    });
+    return response.data;
+  },
+
+  enrollFingerprint: async (studentId: number, fingerprintData: string): Promise<EnrollmentResult> => {
+    const response = await api.post<EnrollmentResult>(`/students/${studentId}/enroll/fingerprint`, {
+      fingerprint_data: fingerprintData,
+    });
+    return response.data;
+  },
+
+  verifyFace: async (studentId: number, faceImage: string): Promise<{ match: boolean; confidence: number }> => {
+    const response = await api.post<{ match: boolean; confidence: number }>(`/students/${studentId}/verify/face`, {
+      image: faceImage,
+    });
+    return response.data;
+  },
+
+  getEnrollmentStatus: async (studentId: number): Promise<{ face_enrolled: boolean; fingerprint_enrolled: boolean }> => {
+    const response = await api.get<{ face_enrolled: boolean; fingerprint_enrolled: boolean }>(`/students/${studentId}/enrollment-status`);
+    return response.data;
+  },
+};
+
+// Anomalies API
+export const anomaliesApi = {
+  getAll: async (params?: { status?: string; severity?: string }): Promise<Anomaly[]> => {
+    const response = await api.get<{ anomalies: Anomaly[] }>('/anomalies', { params });
+    return response.data.anomalies || [];
+  },
+
+  getById: async (id: number): Promise<Anomaly> => {
+    const response = await api.get<Anomaly>(`/anomalies/${id}`);
+    return response.data;
+  },
+
+  resolve: async (id: number, notes: string): Promise<Anomaly> => {
+    const response = await api.post<Anomaly>(`/anomalies/${id}/resolve`, { notes });
+    return response.data;
+  },
+
+  dismiss: async (id: number, reason: string): Promise<Anomaly> => {
+    const response = await api.post<Anomaly>(`/anomalies/${id}/dismiss`, { reason });
+    return response.data;
+  },
+};
+
+// Analytics API
+export const analyticsApi = {
+  getDashboard: async (): Promise<DashboardStats> => {
+    const response = await api.get<DashboardStats>('/analytics/dashboard');
+    return response.data;
+  },
+
+  getCourseReport: async (courseId: number, params?: { date_from?: string; date_to?: string }): Promise<CourseAnalytics> => {
+    const response = await api.get<CourseAnalytics>(`/analytics/course/${courseId}`, { params });
+    return response.data;
+  },
+
+  getLowAttendance: async (threshold?: number): Promise<{ student: Student; attendance_rate: number }[]> => {
+    const response = await api.get<{ students: { student: Student; attendance_rate: number }[] }>('/analytics/low-attendance', {
+      params: { threshold },
+    });
+    return response.data.students || [];
+  },
+
+  exportReport: async (params: { type: 'course' | 'student' | 'session'; id: number; format: 'csv' | 'pdf' }): Promise<Blob> => {
+    const response = await api.get(`/analytics/export`, {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+};
+
+export default api;

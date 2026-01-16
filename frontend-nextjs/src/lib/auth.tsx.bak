@@ -1,0 +1,293 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { User, LoginInput, RegisterInput, AuthState } from '@/types';
+import { authApi, getToken, getStoredUser, removeToken } from './api';
+
+interface AuthContextType extends AuthState {
+  login: (data: LoginInput) => Promise<void>;
+  logout: () => Promise<void>;
+  register: (data: RegisterInput) => Promise<void>;
+  refreshUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Public routes that don't require authentication
+const publicRoutes = ['/', '/login', '/register', '/kiosk'];
+
+// Helper to normalize role to lowercase
+function normalizeRole(role: string): string {
+  return role?.toLowerCase() || '';
+}
+
+// Helper to check if role is student
+function isStudentRole(role: string): boolean {
+  const r = normalizeRole(role);
+  return r === 'student';
+}
+
+// Helper to check if role is faculty/teacher
+function isFacultyRole(role: string): boolean {
+  const r = normalizeRole(role);
+  return r === 'faculty' || r === 'teacher';
+}
+
+// Helper to check if role is admin
+function isAdminRole(role: string): boolean {
+  const r = normalizeRole(role);
+  return r === 'admin';
+}
+
+// Get the default dashboard for a role
+function getDashboardForRole(role: string): string {
+  if (isStudentRole(role)) return '/student';
+  if (isFacultyRole(role)) return '/teacher';
+  if (isAdminRole(role)) return '/teacher'; // Admin uses teacher dashboard
+  return '/login';
+}
+
+// Check if user has access to a path
+function hasAccessToPath(role: string, pathname: string): boolean {
+  const r = normalizeRole(role);
+  
+  if (pathname.startsWith('/student')) {
+    return r === 'student';
+  }
+  
+  if (pathname.startsWith('/teacher') || pathname.startsWith('/admin')) {
+    return r === 'faculty' || r === 'teacher' || r === 'admin';
+  }
+  
+  return true;
+}
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    isLoading: true,
+    isAuthenticated: false,
+  });
+
+  // Handle client-side mounting
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+    
+    // First check if we have a token
+    const token = getToken();
+    if (!token) {
+      // Check for stored user (for hydration)
+      const storedUser = getStoredUser();
+      if (storedUser) {
+        // Token might have been cleared, so clear stored user too
+        removeToken();
+      }
+      setState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+      return;
+    }
+
+    try {
+      const user = await authApi.getCurrentUser();
+      setState({
+        user,
+        isLoading: false,
+        isAuthenticated: !!user,
+      });
+    } catch {
+      setState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+    }
+  }, []);
+
+  // Check auth status on mount (only on client)
+  useEffect(() => {
+    if (mounted) {
+      refreshUser();
+    }
+  }, [mounted, refreshUser]);
+
+  // Route protection - only run after mounted and loading complete
+  useEffect(() => {
+    if (!mounted || state.isLoading) return;
+
+    const isPublicRoute = publicRoutes.some(
+      (route) => pathname === route || pathname.startsWith('/kiosk')
+    );
+
+    // If not authenticated and on protected route, redirect to login
+    if (!state.isAuthenticated && !isPublicRoute) {
+      router.push('/login');
+      return;
+    }
+
+    if (state.isAuthenticated && state.user) {
+      const userRole = state.user.role;
+
+      // If user is on a protected route, check if they have access
+      const isProtectedRoute = ['/teacher', '/admin', '/student'].some((prefix) =>
+        pathname.startsWith(prefix)
+      );
+
+      if (isProtectedRoute && !hasAccessToPath(userRole, pathname)) {
+        // Redirect to appropriate dashboard
+        router.push(getDashboardForRole(userRole));
+        return;
+      }
+
+      // Redirect from login/register page if already authenticated
+      if (pathname === '/login' || pathname === '/register' || pathname === '/') {
+        router.push(getDashboardForRole(userRole));
+      }
+    }
+  }, [mounted, state.isLoading, state.isAuthenticated, state.user, pathname, router]);
+
+  const login = useCallback(async (data: LoginInput) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    try {
+      const user = await authApi.login(data);
+      setState({
+        user,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+
+      // Redirect based on role
+      router.push(getDashboardForRole(user.role));
+    } catch (error) {
+      setState((prev) => ({ ...prev, isLoading: false }));
+      throw error;
+    }
+  }, [router]);
+
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } finally {
+      setState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+      router.push('/login');
+    }
+  }, [router]);
+
+  const register = useCallback(async (data: RegisterInput) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    try {
+      const user = await authApi.register(data);
+      setState({
+        user,
+        isLoading: false,
+        isAuthenticated: true,
+      });
+
+      // Redirect based on role
+      router.push(getDashboardForRole(user.role));
+    } catch (error) {
+      setState((prev) => ({ ...prev, isLoading: false }));
+      throw error;
+    }
+  }, [router]);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        ...state,
+        login,
+        logout,
+        register,
+        refreshUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
+// Higher-order component for protected routes
+export function withAuth<P extends object>(
+  Component: React.ComponentType<P>,
+  allowedRoles?: string[]
+): React.FC<P> {
+  return function ProtectedRoute(props: P) {
+    const { user, isLoading, isAuthenticated } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+      if (!isLoading) {
+        if (!isAuthenticated) {
+          router.push('/login');
+        } else if (allowedRoles && user) {
+          const userRole = normalizeRole(user.role);
+          const hasAccess = allowedRoles.some(r => normalizeRole(r) === userRole);
+          if (!hasAccess) {
+            router.push(getDashboardForRole(user.role));
+          }
+        }
+      }
+    }, [isLoading, isAuthenticated, user, router]);
+
+    if (isLoading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="loading-spinner w-12 h-12"></div>
+        </div>
+      );
+    }
+
+    if (!isAuthenticated) {
+      return null;
+    }
+
+    if (allowedRoles && user) {
+      const userRole = normalizeRole(user.role);
+      const hasAccess = allowedRoles.some(r => normalizeRole(r) === userRole);
+      if (!hasAccess) {
+        return null;
+      }
+    }
+
+    return <Component {...props} />;
+  };
+}
+
+// Hook for checking permissions
+export function usePermission(allowedRoles: string[]): boolean {
+  const { user, isAuthenticated } = useAuth();
+
+  if (!isAuthenticated || !user) {
+    return false;
+  }
+
+  const userRole = normalizeRole(user.role);
+  return allowedRoles.some(r => normalizeRole(r) === userRole);
+}
