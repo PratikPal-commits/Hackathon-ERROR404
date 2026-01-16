@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react';
-import { initializeFaceAPI, extractFaceEmbedding, verifyFace, getServiceStatus } from '@/services/faceRecognition';
+import { initializeFaceAPI, extractFaceEmbedding, verifyFace, getServiceStatus, FaceErrorType } from '@/services/faceRecognition';
 import { verifyFingerprint, captureFingerprint } from '@/services/fingerprint';
 
 type Step = 'loading' | 'select_method' | 'qr_scan' | 'face_capture' | 'fingerprint' | 'processing' | 'success' | 'error';
@@ -126,17 +126,32 @@ export default function KioskAttendancePage() {
       return;
     }
 
+    // Check if video is ready
+    if (videoElement.readyState < 2 || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
+      setError('Camera not ready. Please wait a moment and try again.');
+      return;
+    }
+
     setStep('processing');
 
     try {
-      // Extract face embedding from live camera
-      const capturedEmbedding = await extractFaceEmbedding(videoElement);
+      console.log('[Kiosk] Extracting embedding from video:', videoElement.videoWidth, 'x', videoElement.videoHeight);
       
-      if (!capturedEmbedding) {
-        setError('No face detected. Please position your face in the circle and try again.');
+      // Extract face embedding from live camera
+      const extractionResult = await extractFaceEmbedding(videoElement);
+      
+      if (!extractionResult.success || !extractionResult.embedding) {
+        // Use detailed error message from service
+        const errorMsg = extractionResult.error 
+          ? `${extractionResult.error.message}. ${extractionResult.error.suggestion}`
+          : 'No face detected. Please position your face in the circle and try again.';
+        setError(errorMsg);
         setStep('face_capture');
         return;
       }
+
+      const capturedEmbedding = extractionResult.embedding;
+      console.log('[Kiosk] Got embedding with', capturedEmbedding.length, 'dimensions');
 
       let faceConfidence = 0;
       let faceMatch = false;

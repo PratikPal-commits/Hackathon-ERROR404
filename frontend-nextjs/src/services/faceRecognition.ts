@@ -13,6 +13,82 @@ let faceapi: any = null;
 // Model URLs (these would be loaded from public folder)
 const MODEL_URL = '/models';
 
+// Error types for better error handling
+export enum FaceErrorType {
+  NO_FACE = 'NO_FACE',
+  MULTIPLE_FACES = 'MULTIPLE_FACES',
+  POOR_LIGHTING = 'POOR_LIGHTING',
+  FACE_TOO_SMALL = 'FACE_TOO_SMALL',
+  FACE_NOT_CENTERED = 'FACE_NOT_CENTERED',
+  CAMERA_NOT_READY = 'CAMERA_NOT_READY',
+  CAMERA_NOT_AVAILABLE = 'CAMERA_NOT_AVAILABLE',
+  MODEL_NOT_LOADED = 'MODEL_NOT_LOADED',
+  EXTRACTION_FAILED = 'EXTRACTION_FAILED',
+  UNKNOWN = 'UNKNOWN',
+}
+
+export interface FaceError {
+  type: FaceErrorType;
+  message: string;
+  suggestion: string;
+}
+
+// Error messages with helpful suggestions
+const ERROR_MESSAGES: Record<FaceErrorType, { message: string; suggestion: string }> = {
+  [FaceErrorType.NO_FACE]: {
+    message: 'No face detected',
+    suggestion: 'Please position your face within the circle and ensure good lighting.',
+  },
+  [FaceErrorType.MULTIPLE_FACES]: {
+    message: 'Multiple faces detected',
+    suggestion: 'Only one person should be in the frame. Please ensure no one else is visible.',
+  },
+  [FaceErrorType.POOR_LIGHTING]: {
+    message: 'Poor lighting conditions',
+    suggestion: 'Move to a well-lit area or turn on more lights. Avoid backlighting.',
+  },
+  [FaceErrorType.FACE_TOO_SMALL]: {
+    message: 'Face is too far from camera',
+    suggestion: 'Move closer to the camera so your face fills the circle.',
+  },
+  [FaceErrorType.FACE_NOT_CENTERED]: {
+    message: 'Face is not centered',
+    suggestion: 'Position your face in the center of the circle.',
+  },
+  [FaceErrorType.CAMERA_NOT_READY]: {
+    message: 'Camera is not ready',
+    suggestion: 'Please wait a moment for the camera to initialize.',
+  },
+  [FaceErrorType.CAMERA_NOT_AVAILABLE]: {
+    message: 'Camera not available',
+    suggestion: 'Please ensure your camera is connected and you have granted permission.',
+  },
+  [FaceErrorType.MODEL_NOT_LOADED]: {
+    message: 'Face recognition models not loaded',
+    suggestion: 'Please wait for the models to load or refresh the page.',
+  },
+  [FaceErrorType.EXTRACTION_FAILED]: {
+    message: 'Failed to extract face data',
+    suggestion: 'Please try again. Ensure your face is clearly visible and well-lit.',
+  },
+  [FaceErrorType.UNKNOWN]: {
+    message: 'An unknown error occurred',
+    suggestion: 'Please try again or refresh the page.',
+  },
+};
+
+/**
+ * Create a FaceError object
+ */
+export function createFaceError(type: FaceErrorType): FaceError {
+  const info = ERROR_MESSAGES[type];
+  return {
+    type,
+    message: info.message,
+    suggestion: info.suggestion,
+  };
+}
+
 /**
  * Initialize face-api.js models
  */
@@ -44,11 +120,16 @@ export async function initializeFaceAPI(): Promise<boolean> {
 }
 
 /**
- * Detect faces in an image
- * @param imageElement - HTML Image, Video, or Canvas element
- * @returns Detection results with face locations and confidence
+ * Check if video element is ready for processing
  */
-export async function detectFaces(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): Promise<{
+function isVideoReady(video: HTMLVideoElement): boolean {
+  return video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0;
+}
+
+/**
+ * Detection result with detailed status
+ */
+export interface FaceDetectionResult {
   detected: boolean;
   count: number;
   faces: Array<{
@@ -58,9 +139,44 @@ export async function detectFaces(imageElement: HTMLImageElement | HTMLVideoElem
     height: number;
     confidence: number;
   }>;
-}> {
+  error?: FaceError;
+  quality?: {
+    isCentered: boolean;
+    isSufficientSize: boolean;
+    hasGoodConfidence: boolean;
+  };
+}
+
+/**
+ * Detect faces in an image
+ * @param imageElement - HTML Image, Video, or Canvas element
+ * @param options - Detection options
+ * @returns Detection results with face locations and confidence
+ */
+export async function detectFaces(
+  imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
+  options?: {
+    minFaceSize?: number; // Minimum face size as percentage of frame (default: 10%)
+    requireCentered?: boolean; // Whether face must be centered (default: false)
+  }
+): Promise<FaceDetectionResult> {
+  const minFaceSize = options?.minFaceSize ?? 10;
+  const requireCentered = options?.requireCentered ?? false;
+
   if (!isInitialized) {
     await initializeFaceAPI();
+  }
+
+  // Check if video is ready
+  if (imageElement instanceof HTMLVideoElement) {
+    if (!isVideoReady(imageElement)) {
+      return { 
+        detected: false, 
+        count: 0, 
+        faces: [],
+        error: createFaceError(FaceErrorType.CAMERA_NOT_READY),
+      };
+    }
   }
 
   if (useMockMode) {
@@ -75,6 +191,11 @@ export async function detectFaces(imageElement: HTMLImageElement | HTMLVideoElem
         height: 200,
         confidence: 0.95,
       }],
+      quality: {
+        isCentered: true,
+        isSufficientSize: true,
+        hasGoodConfidence: true,
+      },
     };
   }
 
@@ -83,53 +204,216 @@ export async function detectFaces(imageElement: HTMLImageElement | HTMLVideoElem
       .detectAllFaces(imageElement, new faceapi.TinyFaceDetectorOptions())
       .withFaceLandmarks();
 
+    if (detections.length === 0) {
+      return {
+        detected: false,
+        count: 0,
+        faces: [],
+        error: createFaceError(FaceErrorType.NO_FACE),
+      };
+    }
+
+    if (detections.length > 1) {
+      return {
+        detected: true,
+        count: detections.length,
+        faces: detections.map((d: any) => ({
+          x: d.detection.box.x,
+          y: d.detection.box.y,
+          width: d.detection.box.width,
+          height: d.detection.box.height,
+          confidence: d.detection.score,
+        })),
+        error: createFaceError(FaceErrorType.MULTIPLE_FACES),
+      };
+    }
+
+    // Check face quality
+    const detection = detections[0];
+    const box = detection.detection.box;
+    const frameWidth = imageElement instanceof HTMLVideoElement ? imageElement.videoWidth : imageElement.width;
+    const frameHeight = imageElement instanceof HTMLVideoElement ? imageElement.videoHeight : imageElement.height;
+
+    // Check face size (as percentage of frame)
+    const faceArea = (box.width * box.height) / (frameWidth * frameHeight) * 100;
+    const isSufficientSize = faceArea >= minFaceSize;
+
+    // Check if centered (face center within 30% of frame center)
+    const faceCenterX = box.x + box.width / 2;
+    const faceCenterY = box.y + box.height / 2;
+    const frameCenterX = frameWidth / 2;
+    const frameCenterY = frameHeight / 2;
+    const toleranceX = frameWidth * 0.3;
+    const toleranceY = frameHeight * 0.3;
+    const isCentered = 
+      Math.abs(faceCenterX - frameCenterX) < toleranceX &&
+      Math.abs(faceCenterY - frameCenterY) < toleranceY;
+
+    // Check confidence (good if > 0.7)
+    const hasGoodConfidence = detection.detection.score > 0.7;
+
+    const faces = [{
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      confidence: detection.detection.score,
+    }];
+
+    // Determine if there's an error based on quality
+    let error: FaceError | undefined;
+    if (!hasGoodConfidence) {
+      error = createFaceError(FaceErrorType.POOR_LIGHTING);
+    } else if (!isSufficientSize) {
+      error = createFaceError(FaceErrorType.FACE_TOO_SMALL);
+    } else if (requireCentered && !isCentered) {
+      error = createFaceError(FaceErrorType.FACE_NOT_CENTERED);
+    }
+
     return {
-      detected: detections.length > 0,
-      count: detections.length,
-      faces: detections.map((d: any) => ({
-        x: d.detection.box.x,
-        y: d.detection.box.y,
-        width: d.detection.box.width,
-        height: d.detection.box.height,
-        confidence: d.detection.score,
-      })),
+      detected: true,
+      count: 1,
+      faces,
+      quality: {
+        isCentered,
+        isSufficientSize,
+        hasGoodConfidence,
+      },
+      error,
     };
   } catch (error) {
     console.error('[FaceService] Error detecting faces:', error);
-    return { detected: false, count: 0, faces: [] };
+    return { 
+      detected: false, 
+      count: 0, 
+      faces: [],
+      error: createFaceError(FaceErrorType.UNKNOWN),
+    };
   }
+}
+
+/**
+ * Result of face embedding extraction
+ */
+export interface FaceExtractionResult {
+  success: boolean;
+  embedding: number[] | null;
+  error?: FaceError;
 }
 
 /**
  * Extract face embedding (128-dimensional vector) from an image
  * @param imageElement - HTML Image, Video, or Canvas element
- * @returns Face embedding array or null if no face detected
+ * @returns Face embedding result with embedding array or error
  */
-export async function extractFaceEmbedding(imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement): Promise<number[] | null> {
+export async function extractFaceEmbedding(
+  imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement
+): Promise<FaceExtractionResult> {
   if (!isInitialized) {
     await initializeFaceAPI();
   }
 
+  // Check if video is ready
+  if (imageElement instanceof HTMLVideoElement) {
+    if (!isVideoReady(imageElement)) {
+      console.warn('[FaceService] Video not ready yet');
+      return {
+        success: false,
+        embedding: null,
+        error: createFaceError(FaceErrorType.CAMERA_NOT_READY),
+      };
+    }
+  }
+
   if (useMockMode) {
     // Return mock embedding (128-dimensional vector)
-    return Array(128).fill(0).map(() => Math.random() * 2 - 1);
+    return {
+      success: true,
+      embedding: Array(128).fill(0).map(() => Math.random() * 2 - 1),
+    };
   }
 
   try {
+    // First check for multiple faces
+    const allDetections = await faceapi
+      .detectAllFaces(imageElement, new faceapi.TinyFaceDetectorOptions());
+    
+    if (allDetections.length === 0) {
+      return {
+        success: false,
+        embedding: null,
+        error: createFaceError(FaceErrorType.NO_FACE),
+      };
+    }
+
+    if (allDetections.length > 1) {
+      return {
+        success: false,
+        embedding: null,
+        error: createFaceError(FaceErrorType.MULTIPLE_FACES),
+      };
+    }
+
+    // Now get the full detection with descriptor
     const detection = await faceapi
       .detectSingleFace(imageElement, new faceapi.TinyFaceDetectorOptions())
       .withFaceLandmarks()
       .withFaceDescriptor();
 
     if (!detection) {
-      return null;
+      return {
+        success: false,
+        embedding: null,
+        error: createFaceError(FaceErrorType.EXTRACTION_FAILED),
+      };
     }
 
-    return Array.from(detection.descriptor);
+    // Check detection quality
+    if (detection.detection.score < 0.7) {
+      return {
+        success: false,
+        embedding: null,
+        error: createFaceError(FaceErrorType.POOR_LIGHTING),
+      };
+    }
+
+    // Check face size
+    const box = detection.detection.box;
+    const frameWidth = imageElement instanceof HTMLVideoElement ? imageElement.videoWidth : imageElement.width;
+    const frameHeight = imageElement instanceof HTMLVideoElement ? imageElement.videoHeight : imageElement.height;
+    const faceArea = (box.width * box.height) / (frameWidth * frameHeight) * 100;
+    
+    if (faceArea < 5) {
+      return {
+        success: false,
+        embedding: null,
+        error: createFaceError(FaceErrorType.FACE_TOO_SMALL),
+      };
+    }
+
+    return {
+      success: true,
+      embedding: Array.from(detection.descriptor),
+    };
   } catch (error) {
     console.error('[FaceService] Error extracting embedding:', error);
-    return null;
+    return {
+      success: false,
+      embedding: null,
+      error: createFaceError(FaceErrorType.EXTRACTION_FAILED),
+    };
   }
+}
+
+/**
+ * Legacy wrapper for extractFaceEmbedding that returns just the embedding or null
+ * @deprecated Use extractFaceEmbedding instead for better error handling
+ */
+export async function extractFaceEmbeddingLegacy(
+  imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement
+): Promise<number[] | null> {
+  const result = await extractFaceEmbedding(imageElement);
+  return result.embedding;
 }
 
 /**
@@ -288,7 +572,8 @@ export async function performLivenessCheck(
     const checkInterval = setInterval(async () => {
       frameCount++;
       
-      const currentEmbedding = await extractFaceEmbedding(videoElement);
+      const result = await extractFaceEmbedding(videoElement);
+      const currentEmbedding = result.embedding;
       
       if (currentEmbedding && lastEmbedding) {
         const similarity = compareFaceEmbeddings(currentEmbedding, lastEmbedding);

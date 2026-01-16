@@ -19,7 +19,7 @@ import {
   Key,
 } from 'lucide-react';
 import { enrollFingerprint } from '@/services/fingerprint';
-import { initializeFaceAPI, extractFaceEmbedding, detectFaces, getServiceStatus } from '@/services/faceRecognition';
+import { initializeFaceAPI, extractFaceEmbedding, detectFaces, getServiceStatus, FaceErrorType } from '@/services/faceRecognition';
 import Webcam from 'react-webcam';
 
 function cn(...classes: (string | boolean | undefined)[]): string {
@@ -457,7 +457,9 @@ function EnrollModal({
   const webcamRef = useRef<Webcam>(null);
   const [faceApiReady, setFaceApiReady] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
+  const [faceStatus, setFaceStatus] = useState<string>('Initializing camera...');
   const [cameraActive, setCameraActive] = useState(false);
+  const [showReenrollConfirm, setShowReenrollConfirm] = useState(false);
 
   const student = useQuery(api.students.getById, { id: studentId });
   const enrollFingerprintMutation = useMutation(api.students.enrollFingerprint);
@@ -476,14 +478,52 @@ function EnrollModal({
     }
   }, [tab]);
 
-  // Face detection loop
+  // Face detection loop with detailed status
   useEffect(() => {
     if (!cameraActive || !faceApiReady || tab !== 'face') return;
 
     const detectInterval = setInterval(async () => {
-      if (webcamRef.current?.video) {
-        const detection = await detectFaces(webcamRef.current.video);
-        setFaceDetected(detection.detected && detection.count === 1);
+      const webcam = webcamRef.current;
+      if (!webcam) return;
+      
+      const video = webcam.video;
+      if (!video || video.readyState < 2 || video.videoWidth === 0) {
+        setFaceStatus('Initializing camera...');
+        return;
+      }
+      
+      try {
+        const detection = await detectFaces(video, { minFaceSize: 8 });
+        
+        if (detection.error) {
+          setFaceDetected(false);
+          // Show specific status based on error type
+          switch (detection.error.type) {
+            case FaceErrorType.NO_FACE:
+              setFaceStatus('Position face in circle');
+              break;
+            case FaceErrorType.MULTIPLE_FACES:
+              setFaceStatus('Only one face allowed');
+              break;
+            case FaceErrorType.FACE_TOO_SMALL:
+              setFaceStatus('Move closer to camera');
+              break;
+            case FaceErrorType.POOR_LIGHTING:
+              setFaceStatus('Improve lighting');
+              break;
+            default:
+              setFaceStatus('Adjust position');
+          }
+        } else if (detection.detected && detection.count === 1) {
+          setFaceDetected(true);
+          setFaceStatus('Face detected - Ready to capture');
+        } else {
+          setFaceDetected(false);
+          setFaceStatus('Position face in circle');
+        }
+      } catch (err) {
+        console.warn('[FaceDetect] Detection error:', err);
+        setFaceStatus('Detection error - retrying...');
       }
     }, 500);
 
@@ -491,30 +531,49 @@ function EnrollModal({
   }, [cameraActive, faceApiReady, tab]);
 
   const handleEnrollFace = async () => {
-    if (!webcamRef.current?.video) return;
+    const webcam = webcamRef.current;
+    if (!webcam) {
+      setError('Camera not available. Please ensure your camera is connected.');
+      return;
+    }
+
+    // Get the video element from the webcam component
+    const video = webcam.video;
+    if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Camera is still initializing. Please wait a moment and try again.');
+      return;
+    }
 
     setLoading(true);
     setError('');
 
     try {
-      const embedding = await extractFaceEmbedding(webcamRef.current.video);
+      console.log('[EnrollFace] Extracting embedding from video:', video.videoWidth, 'x', video.videoHeight);
+      const result = await extractFaceEmbedding(video);
 
-      if (!embedding) {
-        setError('No face detected. Please position the face in the circle.');
+      if (!result.success || !result.embedding) {
+        // Use the detailed error message from the service
+        const errorMsg = result.error 
+          ? `${result.error.message}. ${result.error.suggestion}`
+          : 'Failed to capture face. Please try again.';
+        setError(errorMsg);
         setLoading(false);
         return;
       }
 
+      console.log('[EnrollFace] Got embedding with', result.embedding.length, 'dimensions');
+      
       await enrollFaceMutation({
         id: studentId,
-        faceEmbedding: embedding,
+        faceEmbedding: result.embedding,
       });
 
       setMessage('Face enrolled successfully!');
       setCameraActive(false);
       setTimeout(onClose, 1500);
     } catch (err: any) {
-      setError(err.message || 'Failed to enroll face');
+      console.error('[EnrollFace] Error:', err);
+      setError(err.message || 'Failed to enroll face. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -632,13 +691,31 @@ function EnrollModal({
                       {student.hasFaceData ? 'Enrolled' : 'Not Enrolled'}
                     </span>
                   </div>
-                  <button
-                    onClick={() => setCameraActive(true)}
-                    className="btn-primary"
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    {student.hasFaceData ? 'Update Face' : 'Start Camera'}
-                  </button>
+                  {student.hasFaceData && !showReenrollConfirm ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+                        This student already has face data enrolled. Re-enrolling will replace the existing data.
+                      </p>
+                      <button
+                        onClick={() => setShowReenrollConfirm(true)}
+                        className="btn-secondary"
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Re-enroll Face
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setCameraActive(true);
+                        setShowReenrollConfirm(false);
+                      }}
+                      className="btn-primary"
+                    >
+                      <Camera className="w-4 h-4 mr-2" />
+                      {student.hasFaceData ? 'Continue Re-enrollment' : 'Start Camera'}
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -671,7 +748,7 @@ function EnrollModal({
                           faceDetected ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
                         )}
                       >
-                        {faceDetected ? 'Face detected - Ready' : 'Position face in circle'}
+                        {faceStatus}
                       </div>
                     </div>
                   </div>
