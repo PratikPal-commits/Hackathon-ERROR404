@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Webcam from 'react-webcam';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import {
@@ -38,6 +39,7 @@ export default function KioskAttendancePage() {
 
   const [step, setStep] = useState<Step>('loading');
   const [error, setError] = useState('');
+  const [cameraError, setCameraError] = useState('');
   const [scannedQR, setScannedQR] = useState<string | null>(null);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [scannerState, setScannerState] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
@@ -78,7 +80,18 @@ export default function KioskAttendancePage() {
   };
 
   const handleQRScanned = (qrData: string) => {
-    setScannedQR(qrData);
+    // Parse QR data format: SMARTATTEND:DEMO:ROLLNO:TIMESTAMP
+    // Extract roll number (3rd element)
+    let rollNo = qrData;
+    
+    if (qrData.startsWith('SMARTATTEND:')) {
+      const parts = qrData.split(':');
+      if (parts.length >= 3) {
+        rollNo = parts[2]; // Get the roll number (3rd element)
+      }
+    }
+    
+    setScannedQR(rollNo);
     setStep('face_capture');
   };
 
@@ -98,9 +111,8 @@ export default function KioskAttendancePage() {
       const faceResult = mockVerifyFace(scannedQR);
       
       // Format QR data for Convex (expecting SMARTATTEND:ID:ROLLNO format)
-      const formattedQR = scannedQR.startsWith('SMARTATTEND:') 
-        ? scannedQR 
-        : `SMARTATTEND:demo:${scannedQR}`;
+      // scannedQR now contains just the roll number
+      const formattedQR = `SMARTATTEND:DEMO:${scannedQR}`;
 
       const response = await verifyAndMark({
         sessionCode: code,
@@ -179,6 +191,7 @@ export default function KioskAttendancePage() {
     setScannedQR(null);
     setResult(null);
     setError('');
+    setCameraError('');
     setScannerState('idle');
     setStep('select_method');
   };
@@ -265,46 +278,60 @@ export default function KioskAttendancePage() {
               <p className="text-gray-400">Position your ID card QR code in the camera view</p>
             </div>
 
-            <div className="relative bg-gray-800 rounded-xl overflow-hidden aspect-video">
-              <Webcam
-                ref={webcamRef}
-                audio={false}
-                screenshotFormat="image/jpeg"
-                videoConstraints={{
-                  width: 640,
-                  height: 480,
-                  facingMode: 'environment',
+            <div className="relative bg-gray-800 rounded-xl overflow-hidden" style={{ minHeight: '300px' }}>
+              <Scanner
+                onScan={(result) => {
+                  if (result && result.length > 0) {
+                    const qrData = result[0].rawValue;
+                    if (qrData) {
+                      handleQRScanned(qrData);
+                    }
+                  }
                 }}
-                className="w-full h-full object-cover"
+                onError={(error) => {
+                  console.error('QR Scanner error:', error);
+                  setCameraError('Unable to access camera. Please allow camera permissions and make sure you are using HTTPS.');
+                }}
+                scanDelay={500}
+                constraints={{
+                  facingMode: { ideal: 'environment' },
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 },
+                }}
+                styles={{
+                  container: {
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '300px',
+                  },
+                  video: {
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  },
+                }}
+                components={{
+                  finder: true,
+                }}
               />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-48 h-48 border-2 border-blue-400 rounded-lg"></div>
-              </div>
             </div>
 
-            {/* Demo: Manual QR Entry */}
-            <div className="bg-gray-800 rounded-xl p-4">
-              <p className="text-sm text-gray-400 mb-2">Demo: Enter roll number manually</p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Enter roll number (e.g., CS2024001)..."
-                  className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleQRScanned((e.target as HTMLInputElement).value);
-                    }
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    const input = document.querySelector('input[placeholder*="roll number"]') as HTMLInputElement;
-                    if (input?.value) handleQRScanned(input.value);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium"
-                >
-                  Submit
-                </button>
+            {cameraError && (
+              <div className="bg-red-900/50 border border-red-500 rounded-lg p-4">
+                <p className="text-red-300 text-sm">{cameraError}</p>
+                <p className="text-yellow-400 text-xs mt-2">
+                  Tip: On mobile, camera requires HTTPS. Make sure you&apos;re accessing via https://
+                </p>
+              </div>
+            )}
+
+            <div className="bg-gray-800 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <QrCode className="w-6 h-6 text-blue-400" />
+                <div>
+                  <p className="text-sm text-gray-300">Waiting for QR code...</p>
+                  <p className="text-xs text-gray-500">Hold your ID card steady in front of the camera</p>
+                </div>
               </div>
             </div>
 

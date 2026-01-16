@@ -3,7 +3,7 @@
 import { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, LayoutDashboard, Calendar, User, LogOut, CheckSquare } from 'lucide-react';
+import { Shield, LayoutDashboard, Calendar, User, LogOut } from 'lucide-react';
 import { useAuth } from '@/app/providers';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +13,6 @@ interface StudentLayoutProps {
 
 const navItems = [
   { href: '/student', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/student/mark-attendance', label: 'Mark Attendance', icon: CheckSquare },
   { href: '/student/attendance', label: 'History', icon: Calendar },
   { href: '/student/profile', label: 'Profile', icon: User },
 ];

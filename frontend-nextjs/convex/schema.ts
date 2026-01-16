@@ -186,4 +186,23 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_user", ["userId"]),
+
+  // Allowed networks for attendance verification (IP-based)
+  allowedNetworks: defineTable({
+    name: v.string(),
+    ipRange: v.string(), // CIDR notation e.g., "192.168.1.0/24" or single IP "192.168.1.1"
+    location: v.string(), // e.g., "Main Campus", "Engineering Block"
+    networkType: v.union(
+      v.literal("campus"), // Permanent campus network (admin only)
+      v.literal("temporary") // Temporary network like teacher's hotspot
+    ),
+    isActive: v.boolean(),
+    addedBy: v.id("users"), // Admin or teacher who added this
+    expiresAt: v.optional(v.number()), // For temporary networks
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_type", ["networkType"])
+    .index("by_active", ["isActive"])
+    .index("by_added_by", ["addedBy"]),
 });

@@ -14,6 +14,7 @@ import {
   LogOut,
   Menu,
   X,
+  Wifi,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/teacher/sessions', label: 'Sessions', icon: Calendar },
   { href: '/teacher/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/teacher/anomalies', label: 'Anomalies', icon: AlertTriangle },
+  { href: '/teacher/network', label: 'Network', icon: Wifi },
 ];
 
 export default function TeacherLayout({ children }: TeacherLayoutProps) {

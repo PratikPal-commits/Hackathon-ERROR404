@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from 'convex/react';
-import { Calendar, TrendingUp, Clock, BookOpen, QrCode, Camera } from 'lucide-react';
+import { Calendar, TrendingUp, Clock, BookOpen, QrCode } from 'lucide-react';
 import { useAuth } from '@/app/providers';
 import { api } from '@convex/_generated/api';
 import { Id } from '@convex/_generated/dataModel';
@@ -120,21 +120,16 @@ export default function StudentDashboard() {
       {/* Active Sessions Banner */}
       {activeSessions && activeSessions.length > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium text-green-800">Active Sessions Available!</p>
-                <p className="text-sm text-green-600">
-                  {activeSessions.length} class(es) are currently taking attendance
-                </p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <Clock className="w-5 h-5 text-green-600" />
             </div>
-            <Link href="/student/mark-attendance" className="btn-primary">
-              Mark Attendance
-            </Link>
+            <div>
+              <p className="font-medium text-green-800">Active Sessions Available!</p>
+              <p className="text-sm text-green-600">
+                {activeSessions.length} class(es) are currently taking attendance. Use the kiosk to mark your attendance.
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -193,20 +188,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Link
-          href="/student/mark-attendance"
-          className="card p-6 hover:shadow-lg transition-shadow flex items-center gap-4"
-        >
-          <div className="w-14 h-14 bg-primary-100 rounded-xl flex items-center justify-center">
-            <Camera className="w-7 h-7 text-primary-600" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">Mark Attendance</h3>
-            <p className="text-sm text-gray-600">Use QR code and face verification</p>
-          </div>
-        </Link>
-
+      <div className="grid md:grid-cols-1 gap-4">
         <Link
           href="/student/profile"
           className="card p-6 hover:shadow-lg transition-shadow flex items-center gap-4"
@@ -216,7 +198,7 @@ export default function StudentDashboard() {
           </div>
           <div>
             <h3 className="font-semibold text-gray-900">View QR Code</h3>
-            <p className="text-sm text-gray-600">Show your ID card QR code</p>
+            <p className="text-sm text-gray-600">Show your ID card QR code for kiosk attendance</p>
           </div>
         </Link>
       </div>
