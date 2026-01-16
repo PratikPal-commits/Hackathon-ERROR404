@@ -11,7 +11,8 @@ import { useAuth } from '@/app/providers';
 // Get the default dashboard for a role
 function getDashboardForRole(role: string): string {
   if (role === 'student') return '/student';
-  if (role === 'faculty' || role === 'admin') return '/teacher';
+  if (role === 'admin') return '/admin';
+  if (role === 'faculty') return '/teacher';
   return '/login';
 }
 
@@ -63,10 +64,13 @@ export default function LoginPage() {
   };
 
   // Demo quick login
-  const handleDemoLogin = async (role: 'faculty' | 'student') => {
-    const credentials = role === 'faculty' 
-      ? { email: 'prof.sharma@college.edu', password: 'faculty123' }
-      : { email: 'amit@student.edu', password: 'student123' };
+  const handleDemoLogin = async (role: 'admin' | 'faculty' | 'student') => {
+    const credentials = 
+      role === 'admin'
+        ? { email: 'admin@smartattend.com', password: 'admin123' }
+        : role === 'faculty' 
+          ? { email: 'prof.sharma@college.edu', password: 'faculty123' }
+          : { email: 'amit@student.edu', password: 'student123' };
     
     setFormData(credentials);
     setError('');
@@ -190,20 +194,27 @@ export default function LoginPage() {
         {/* Demo Credentials */}
         <div className="mt-6 card p-4">
           <p className="text-sm text-gray-600 text-center mb-3">Quick Demo Login:</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              onClick={() => handleDemoLogin('admin')}
+              disabled={isLoading}
+              className="btn-outline text-sm py-2"
+            >
+              Admin
+            </button>
             <button
               onClick={() => handleDemoLogin('faculty')}
               disabled={isLoading}
               className="btn-outline text-sm py-2"
             >
-              Login as Teacher
+              Teacher
             </button>
             <button
               onClick={() => handleDemoLogin('student')}
               disabled={isLoading}
               className="btn-outline text-sm py-2"
             >
-              Login as Student
+              Student
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-3 text-center">

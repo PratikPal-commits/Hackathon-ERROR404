@@ -64,7 +64,8 @@ const publicRoutes = ['/', '/login', '/register', '/kiosk'];
 // Get the default dashboard for a role
 function getDashboardForRole(role: string): string {
   if (role === 'student') return '/student';
-  if (role === 'faculty' || role === 'admin') return '/teacher';
+  if (role === 'admin') return '/admin';
+  if (role === 'faculty') return '/teacher';
   return '/login';
 }
 
@@ -73,8 +74,11 @@ function hasAccessToPath(role: string, pathname: string): boolean {
   if (pathname.startsWith('/student')) {
     return role === 'student';
   }
-  if (pathname.startsWith('/teacher') || pathname.startsWith('/admin')) {
-    return role === 'faculty' || role === 'admin';
+  if (pathname.startsWith('/teacher')) {
+    return role === 'faculty';
+  }
+  if (pathname.startsWith('/admin')) {
+    return role === 'admin';
   }
   return true;
 }

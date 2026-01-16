@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react';
-import { initializeFaceAPI, mockVerifyFace, detectFaces } from '@/services/faceRecognition';
+import { initializeFaceAPI, extractFaceEmbedding, verifyFace, getServiceStatus } from '@/services/faceRecognition';
 import { verifyFingerprint, captureFingerprint } from '@/services/fingerprint';
 
 type Step = 'loading' | 'select_method' | 'qr_scan' | 'face_capture' | 'fingerprint' | 'processing' | 'success' | 'error';
@@ -41,19 +41,28 @@ export default function KioskAttendancePage() {
   const [error, setError] = useState('');
   const [cameraError, setCameraError] = useState('');
   const [scannedQR, setScannedQR] = useState<string | null>(null);
+  const [scannedStudentRollNo, setScannedStudentRollNo] = useState<string | null>(null);
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [scannerState, setScannerState] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
+  const [faceApiReady, setFaceApiReady] = useState(false);
 
   const webcamRef = useRef<Webcam>(null);
 
   // Convex queries and mutations
   const session = useQuery(api.sessions.getByCode, { code });
+  const scannedStudent = useQuery(
+    api.students.getByRollNo,
+    scannedStudentRollNo ? { rollNo: scannedStudentRollNo } : "skip"
+  );
   const verifyAndMark = useMutation(api.attendance.verifyAndMark);
   const verifyFingerprintAndMark = useMutation(api.attendance.verifyFingerprintAndMark);
 
   // Initialize face API on mount
   useEffect(() => {
-    initializeFaceAPI();
+    initializeFaceAPI().then((ready) => {
+      setFaceApiReady(ready);
+      console.log('[Kiosk] Face API initialized, mock mode:', getServiceStatus().mockMode);
+    });
   }, []);
 
   // Handle session loading
@@ -92,32 +101,81 @@ export default function KioskAttendancePage() {
     }
     
     setScannedQR(rollNo);
+    setScannedStudentRollNo(rollNo);
     setStep('face_capture');
   };
 
   const handleCaptureFace = async () => {
     if (!webcamRef.current || !scannedQR) return;
 
-    const imageSrc = webcamRef.current.getScreenshot();
-    if (!imageSrc) {
-      setError('Failed to capture image');
+    // Check if student data is loaded
+    if (scannedStudent === undefined) {
+      setError('Loading student data...');
+      return;
+    }
+
+    if (scannedStudent === null) {
+      setError('Student not found. Please scan a valid ID.');
+      setStep('error');
+      return;
+    }
+
+    const videoElement = webcamRef.current.video;
+    if (!videoElement) {
+      setError('Camera not available');
       return;
     }
 
     setStep('processing');
 
     try {
-      // Use mock face verification for demo
-      const faceResult = mockVerifyFace(scannedQR);
+      // Extract face embedding from live camera
+      const capturedEmbedding = await extractFaceEmbedding(videoElement);
+      
+      if (!capturedEmbedding) {
+        setError('No face detected. Please position your face in the circle and try again.');
+        setStep('face_capture');
+        return;
+      }
+
+      let faceConfidence = 0;
+      let faceMatch = false;
+      let message = '';
+
+      // Check if student has enrolled face data
+      if (scannedStudent.hasFaceData && scannedStudent.faceEmbedding) {
+        // Compare with stored embedding
+        const verificationResult = verifyFace(capturedEmbedding, scannedStudent.faceEmbedding);
+        faceConfidence = verificationResult.confidence;
+        faceMatch = verificationResult.match;
+        message = verificationResult.message;
+
+        if (!faceMatch) {
+          setError(message);
+          setResult({
+            success: false,
+            message,
+            anomalyDetected: true,
+          });
+          setStep('error');
+          return;
+        }
+      } else {
+        // Student has no face data enrolled - allow with warning
+        // In production, you might want to require enrollment first
+        console.log('[Kiosk] Student has no face data, allowing verification with captured face');
+        faceConfidence = 85; // Default confidence for first-time
+        faceMatch = true;
+        message = 'Face captured (no enrolled face to compare)';
+      }
       
       // Format QR data for Convex (expecting SMARTATTEND:ID:ROLLNO format)
-      // scannedQR now contains just the roll number
       const formattedQR = `SMARTATTEND:DEMO:${scannedQR}`;
 
       const response = await verifyAndMark({
         sessionCode: code,
         qrData: formattedQR,
-        faceConfidence: faceResult.confidence,
+        faceConfidence: faceConfidence,
         deviceInfo: navigator.userAgent,
         ipAddress: 'kiosk',
       });
@@ -189,6 +247,7 @@ export default function KioskAttendancePage() {
 
   const handleReset = () => {
     setScannedQR(null);
+    setScannedStudentRollNo(null);
     setResult(null);
     setError('');
     setCameraError('');

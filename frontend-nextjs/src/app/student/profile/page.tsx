@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Mail, Hash, Building, Calendar, Camera, Fingerprint, QrCode, Loader2 } from 'lucide-react';
 import { useQuery } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -152,7 +152,7 @@ export default function StudentProfilePage() {
                       faceEnrolled ? 'text-green-600' : 'text-gray-500'
                     )}
                   >
-                    {faceEnrolled ? 'Enrolled' : 'Not Enrolled'}
+                    {faceEnrolled ? 'Enrolled' : 'Not Enrolled - Contact Admin'}
                   </p>
                 </div>
               </div>

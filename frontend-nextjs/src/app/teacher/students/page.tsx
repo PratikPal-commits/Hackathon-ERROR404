@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -19,6 +19,8 @@ import {
   Key,
 } from 'lucide-react';
 import { enrollFingerprint } from '@/services/fingerprint';
+import { initializeFaceAPI, extractFaceEmbedding, detectFaces, getServiceStatus } from '@/services/faceRecognition';
+import Webcam from 'react-webcam';
 
 function cn(...classes: (string | boolean | undefined)[]): string {
   return classes.filter(Boolean).join(' ');
@@ -450,13 +452,73 @@ function EnrollModal({
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  
+  // Face enrollment state
+  const webcamRef = useRef<Webcam>(null);
+  const [faceApiReady, setFaceApiReady] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
 
   const student = useQuery(api.students.getById, { id: studentId });
   const enrollFingerprintMutation = useMutation(api.students.enrollFingerprint);
+  const enrollFaceMutation = useMutation(api.students.enrollFace);
 
   function cn(...classes: (string | boolean | undefined)[]): string {
     return classes.filter(Boolean).join(' ');
   }
+
+  // Initialize face API when tab is face
+  useEffect(() => {
+    if (tab === 'face') {
+      initializeFaceAPI().then((ready) => {
+        setFaceApiReady(ready);
+      });
+    }
+  }, [tab]);
+
+  // Face detection loop
+  useEffect(() => {
+    if (!cameraActive || !faceApiReady || tab !== 'face') return;
+
+    const detectInterval = setInterval(async () => {
+      if (webcamRef.current?.video) {
+        const detection = await detectFaces(webcamRef.current.video);
+        setFaceDetected(detection.detected && detection.count === 1);
+      }
+    }, 500);
+
+    return () => clearInterval(detectInterval);
+  }, [cameraActive, faceApiReady, tab]);
+
+  const handleEnrollFace = async () => {
+    if (!webcamRef.current?.video) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const embedding = await extractFaceEmbedding(webcamRef.current.video);
+
+      if (!embedding) {
+        setError('No face detected. Please position the face in the circle.');
+        setLoading(false);
+        return;
+      }
+
+      await enrollFaceMutation({
+        id: studentId,
+        faceEmbedding: embedding,
+      });
+
+      setMessage('Face enrolled successfully!');
+      setCameraActive(false);
+      setTimeout(onClose, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Failed to enroll face');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEnrollFingerprint = async () => {
     if (!student) return;
@@ -511,7 +573,7 @@ function EnrollModal({
           {/* Tabs */}
           <div className="flex border-b border-gray-200 mb-4">
             <button
-              onClick={() => setTab('face')}
+              onClick={() => { setTab('face'); setCameraActive(false); setError(''); setMessage(''); }}
               className={cn(
                 'px-4 py-2 font-medium border-b-2 -mb-px',
                 tab === 'face'
@@ -523,7 +585,7 @@ function EnrollModal({
               Face
             </button>
             <button
-              onClick={() => setTab('fingerprint')}
+              onClick={() => { setTab('fingerprint'); setCameraActive(false); setError(''); setMessage(''); }}
               className={cn(
                 'px-4 py-2 font-medium border-b-2 -mb-px',
                 tab === 'fingerprint'
@@ -551,25 +613,101 @@ function EnrollModal({
           )}
 
           {tab === 'face' ? (
-            <div className="text-center py-8">
-              <div className="w-32 h-32 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <Camera className="w-12 h-12 text-gray-400" />
-              </div>
-              <p className="text-gray-600 mb-4">
-                Face enrollment requires the webcam component.
-                <br />
-                Go to the Kiosk page to capture face images.
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <span
-                  className={cn(
-                    'badge',
-                    student.hasFaceData ? 'badge-success' : 'badge-gray'
-                  )}
-                >
-                  {student.hasFaceData ? 'Enrolled' : 'Not Enrolled'}
-                </span>
-              </div>
+            <div className="space-y-4">
+              {!cameraActive ? (
+                <div className="text-center py-8">
+                  <div className="w-32 h-32 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <Camera className="w-12 h-12 text-gray-400" />
+                  </div>
+                  <p className="text-gray-600 mb-4">
+                    Capture the student's face for attendance verification.
+                  </p>
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <span
+                      className={cn(
+                        'badge',
+                        student.hasFaceData ? 'badge-success' : 'badge-gray'
+                      )}
+                    >
+                      {student.hasFaceData ? 'Enrolled' : 'Not Enrolled'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setCameraActive(true)}
+                    className="btn-primary"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    {student.hasFaceData ? 'Update Face' : 'Start Camera'}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="relative bg-gray-900 rounded-xl overflow-hidden aspect-video">
+                    <Webcam
+                      ref={webcamRef}
+                      audio={false}
+                      videoConstraints={{
+                        width: 640,
+                        height: 480,
+                        facingMode: 'user',
+                      }}
+                      className="w-full h-full object-cover"
+                      mirrored
+                    />
+                    {/* Face guide overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div
+                        className={cn(
+                          'w-32 h-40 border-4 rounded-full transition-colors',
+                          faceDetected ? 'border-green-400' : 'border-white/50'
+                        )}
+                      />
+                    </div>
+                    {/* Status indicator */}
+                    <div className="absolute bottom-2 left-2 right-2">
+                      <div
+                        className={cn(
+                          'px-2 py-1 rounded text-xs font-medium text-center',
+                          faceDetected ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
+                        )}
+                      >
+                        {faceDetected ? 'Face detected - Ready' : 'Position face in circle'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCameraActive(false)}
+                      className="btn-secondary flex-1"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleEnrollFace}
+                      disabled={!faceDetected || loading}
+                      className={cn(
+                        'flex-1 flex items-center justify-center gap-2',
+                        faceDetected && !loading
+                          ? 'btn-primary'
+                          : 'bg-gray-200 text-gray-500 cursor-not-allowed rounded-lg py-2'
+                      )}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-4 h-4" />
+                          Capture & Save
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="text-center py-8">

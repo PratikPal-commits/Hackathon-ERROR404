@@ -13,6 +13,7 @@ import type * as anomalies from "../anomalies.js";
 import type * as attendance from "../attendance.js";
 import type * as auth from "../auth.js";
 import type * as courses from "../courses.js";
+import type * as faculty from "../faculty.js";
 import type * as networks from "../networks.js";
 import type * as seed from "../seed.js";
 import type * as sessions from "../sessions.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   attendance: typeof attendance;
   auth: typeof auth;
   courses: typeof courses;
+  faculty: typeof faculty;
   networks: typeof networks;
   seed: typeof seed;
   sessions: typeof sessions;
