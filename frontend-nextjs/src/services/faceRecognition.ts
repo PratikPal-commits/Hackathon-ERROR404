@@ -123,7 +123,41 @@ export async function initializeFaceAPI(): Promise<boolean> {
  * Check if video element is ready for processing
  */
 function isVideoReady(video: HTMLVideoElement): boolean {
-  return video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0;
+  // Check all conditions for video readiness
+  const hasValidDimensions = video.videoWidth > 0 && video.videoHeight > 0;
+  const hasEnoughData = video.readyState >= 2; // HAVE_CURRENT_DATA or higher
+  const isPlaying = !video.paused && !video.ended;
+  
+  return hasValidDimensions && hasEnoughData && isPlaying;
+}
+
+/**
+ * Create a canvas from video element for safe processing
+ * This avoids the "canvas element with a width or height of 0" error
+ */
+function createCanvasFromVideo(video: HTMLVideoElement): HTMLCanvasElement | null {
+  if (!isVideoReady(video)) {
+    console.warn('[FaceService] Video not ready for canvas creation');
+    return null;
+  }
+
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.error('[FaceService] Could not get canvas context');
+      return null;
+    }
+    
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  } catch (error) {
+    console.error('[FaceService] Error creating canvas from video:', error);
+    return null;
+  }
 }
 
 /**
@@ -167,7 +201,11 @@ export async function detectFaces(
     await initializeFaceAPI();
   }
 
-  // Check if video is ready
+  // For video elements, create a canvas snapshot to avoid drawImage errors
+  let inputElement: HTMLImageElement | HTMLCanvasElement = imageElement as HTMLImageElement | HTMLCanvasElement;
+  let frameWidth = 0;
+  let frameHeight = 0;
+
   if (imageElement instanceof HTMLVideoElement) {
     if (!isVideoReady(imageElement)) {
       return { 
@@ -177,6 +215,23 @@ export async function detectFaces(
         error: createFaceError(FaceErrorType.CAMERA_NOT_READY),
       };
     }
+    
+    // Create canvas from video to avoid timing issues
+    const canvas = createCanvasFromVideo(imageElement);
+    if (!canvas) {
+      return { 
+        detected: false, 
+        count: 0, 
+        faces: [],
+        error: createFaceError(FaceErrorType.CAMERA_NOT_READY),
+      };
+    }
+    inputElement = canvas;
+    frameWidth = imageElement.videoWidth;
+    frameHeight = imageElement.videoHeight;
+  } else {
+    frameWidth = imageElement.width;
+    frameHeight = imageElement.height;
   }
 
   if (useMockMode) {
@@ -201,7 +256,7 @@ export async function detectFaces(
 
   try {
     const detections = await faceapi
-      .detectAllFaces(imageElement, new faceapi.TinyFaceDetectorOptions())
+      .detectAllFaces(inputElement, new faceapi.TinyFaceDetectorOptions())
       .withFaceLandmarks();
 
     if (detections.length === 0) {
@@ -231,8 +286,6 @@ export async function detectFaces(
     // Check face quality
     const detection = detections[0];
     const box = detection.detection.box;
-    const frameWidth = imageElement instanceof HTMLVideoElement ? imageElement.videoWidth : imageElement.width;
-    const frameHeight = imageElement instanceof HTMLVideoElement ? imageElement.videoHeight : imageElement.height;
 
     // Check face size (as percentage of frame)
     const faceArea = (box.width * box.height) / (frameWidth * frameHeight) * 100;
@@ -313,7 +366,11 @@ export async function extractFaceEmbedding(
     await initializeFaceAPI();
   }
 
-  // Check if video is ready
+  // For video elements, create a canvas snapshot to avoid drawImage errors
+  let inputElement: HTMLImageElement | HTMLCanvasElement = imageElement as HTMLImageElement | HTMLCanvasElement;
+  let frameWidth = 0;
+  let frameHeight = 0;
+
   if (imageElement instanceof HTMLVideoElement) {
     if (!isVideoReady(imageElement)) {
       console.warn('[FaceService] Video not ready yet');
@@ -323,6 +380,22 @@ export async function extractFaceEmbedding(
         error: createFaceError(FaceErrorType.CAMERA_NOT_READY),
       };
     }
+    
+    // Create canvas from video to avoid timing issues
+    const canvas = createCanvasFromVideo(imageElement);
+    if (!canvas) {
+      return {
+        success: false,
+        embedding: null,
+        error: createFaceError(FaceErrorType.CAMERA_NOT_READY),
+      };
+    }
+    inputElement = canvas;
+    frameWidth = imageElement.videoWidth;
+    frameHeight = imageElement.videoHeight;
+  } else {
+    frameWidth = imageElement.width;
+    frameHeight = imageElement.height;
   }
 
   if (useMockMode) {
@@ -336,7 +409,7 @@ export async function extractFaceEmbedding(
   try {
     // First check for multiple faces
     const allDetections = await faceapi
-      .detectAllFaces(imageElement, new faceapi.TinyFaceDetectorOptions());
+      .detectAllFaces(inputElement, new faceapi.TinyFaceDetectorOptions());
     
     if (allDetections.length === 0) {
       return {
@@ -356,7 +429,7 @@ export async function extractFaceEmbedding(
 
     // Now get the full detection with descriptor
     const detection = await faceapi
-      .detectSingleFace(imageElement, new faceapi.TinyFaceDetectorOptions())
+      .detectSingleFace(inputElement, new faceapi.TinyFaceDetectorOptions())
       .withFaceLandmarks()
       .withFaceDescriptor();
 
@@ -379,8 +452,6 @@ export async function extractFaceEmbedding(
 
     // Check face size
     const box = detection.detection.box;
-    const frameWidth = imageElement instanceof HTMLVideoElement ? imageElement.videoWidth : imageElement.width;
-    const frameHeight = imageElement instanceof HTMLVideoElement ? imageElement.videoHeight : imageElement.height;
     const faceArea = (box.width * box.height) / (frameWidth * frameHeight) * 100;
     
     if (faceArea < 5) {
