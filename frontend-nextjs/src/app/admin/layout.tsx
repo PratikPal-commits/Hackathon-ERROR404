@@ -15,9 +15,13 @@ import {
   Calendar,
   BarChart3,
   AlertTriangle,
+  GraduationCap,
 } from 'lucide-react';
 import { useAuth } from '@/app/providers';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -29,9 +33,8 @@ const adminNavItems = [
   { href: '/admin/network', label: 'Network', icon: Wifi },
 ];
 
-// Links to management pages (admin routes)
 const managementNavItems = [
-  { href: '/admin/students', label: 'Students', icon: Users },
+  { href: '/admin/students', label: 'Students', icon: GraduationCap },
   { href: '/admin/courses', label: 'Courses', icon: BookOpen },
   { href: '/admin/sessions', label: 'Sessions', icon: Calendar },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
@@ -62,12 +65,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return allNavItems.find((item) => isActive(item.href))?.label || 'Admin Dashboard';
   };
 
+  const getInitials = (name?: string) => {
+    if (!name) return 'A';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-sky-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -75,31 +83,31 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-full w-64 bg-gray-900 text-white transform transition-transform lg:translate-x-0',
+          'fixed top-0 left-0 z-50 h-full w-64 bg-slate-900 text-white transform transition-transform duration-300 lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
-          <Link href="/admin" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-700/50">
+          <Link href="/admin" className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/25">
+              <Shield className="w-6 h-6 text-white" />
             </div>
-            <span className="font-bold text-white">Admin Panel</span>
+            <span className="font-bold text-lg text-white">Admin Panel</span>
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 text-gray-400 hover:text-white"
+            className="lg:hidden p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-6">
+        <nav className="p-4 space-y-6 overflow-y-auto h-[calc(100vh-10rem)]">
           {/* Admin Section */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-4">
               Admin
             </p>
             <div className="space-y-1">
@@ -108,10 +116,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-2 rounded-lg transition-colors',
+                    'flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200',
                     isActive(item.href)
-                      ? 'bg-red-600 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/25'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   )}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -124,7 +132,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* Management Section */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-4">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-4">
               Management
             </p>
             <div className="space-y-1">
@@ -133,10 +141,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-2 rounded-lg transition-colors',
+                    'flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200',
                     isActive(item.href)
-                      ? 'bg-gray-700 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                      ? 'bg-slate-700 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   )}
                   onClick={() => setSidebarOpen(false)}
                 >
@@ -149,35 +157,47 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </nav>
 
         {/* User & Logout */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
-          <div className="mb-3 px-4">
-            <p className="font-medium text-white truncate">{user?.fullName}</p>
-            <p className="text-sm text-gray-400 truncate">{user?.email}</p>
-            <span className="inline-block mt-1 px-2 py-0.5 bg-red-600 text-white text-xs rounded">
-              Admin
-            </span>
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-700/50 bg-slate-900">
+          <div className="flex items-center gap-3 mb-3 px-2">
+            <Avatar className="h-10 w-10 border-2 border-sky-500/30">
+              <AvatarFallback className="bg-sky-600 text-white font-semibold">
+                {getInitials(user?.fullName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-white truncate">{user?.fullName}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+            </div>
           </div>
-          <button
+          <div className="flex items-center gap-2 px-2">
+            <Badge variant="secondary" className="bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 border-0">
+              Admin
+            </Badge>
+          </div>
+          <Button
             onClick={logout}
-            className="flex items-center gap-3 px-4 py-2 w-full rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+            variant="ghost"
+            className="w-full mt-3 justify-start text-slate-400 hover:text-white hover:bg-slate-800"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-5 h-5 mr-3" />
             Sign Out
-          </button>
+          </Button>
         </div>
       </aside>
 
       {/* Main Content */}
       <div className="lg:pl-64">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center px-4 sticky top-0 z-30">
-          <button
+        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center px-4 sticky top-0 z-30">
+          <Button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 text-gray-400 hover:text-gray-600 mr-4"
+            variant="ghost"
+            size="icon"
+            className="lg:hidden mr-4 text-slate-500 hover:text-slate-900"
           >
             <Menu className="w-6 h-6" />
-          </button>
-          <h1 className="text-lg font-semibold text-gray-900">{getPageTitle()}</h1>
+          </Button>
+          <h1 className="text-lg font-semibold text-slate-900">{getPageTitle()}</h1>
         </header>
 
         {/* Page Content */}

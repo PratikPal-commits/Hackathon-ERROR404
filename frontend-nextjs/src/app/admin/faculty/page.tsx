@@ -18,17 +18,32 @@ import {
   Shield,
   Users,
   MoreVertical,
-  UserCog,
   ToggleLeft,
   ToggleRight,
   Trash2,
   RefreshCw,
   Edit2,
 } from 'lucide-react';
-
-function cn(...classes: (string | boolean | undefined)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function FacultyPage() {
   const searchParams = useSearchParams();
@@ -91,107 +106,104 @@ export default function FacultyPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <Input
               type="text"
               placeholder="Search faculty..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10"
+              className="pl-10 bg-white border-slate-200"
             />
           </div>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value as any)}
-            className="input w-auto"
-          >
-            <option value="all">All Roles</option>
-            <option value="admin">Admins Only</option>
-            <option value="faculty">Faculty Only</option>
-          </select>
+          <Select value={roleFilter} onValueChange={(val) => setRoleFilter(val as any)}>
+            <SelectTrigger className="w-[180px] bg-white border-slate-200">
+              <SelectValue placeholder="All Roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              <SelectItem value="admin">Admins Only</SelectItem>
+              <SelectItem value="faculty">Faculty Only</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary">
+        <Button onClick={() => setShowModal(true)} className="bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/25">
           <Plus className="w-5 h-5 mr-2" />
           Add Faculty
-        </button>
+        </Button>
       </div>
 
       {/* Faculty Table */}
-      <div className="card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
+      <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th>User</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Created</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8">
-                    <Loader2 className="w-8 h-8 mx-auto animate-spin text-blue-600" />
+                  <td colSpan={5} className="text-center py-12">
+                    <Loader2 className="w-8 h-8 mx-auto animate-spin text-sky-600" />
                   </td>
                 </tr>
               ) : faculty?.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-8 text-gray-500">
+                  <td colSpan={5} className="text-center py-12 text-slate-500">
                     No faculty found
                   </td>
                 </tr>
               ) : (
                 faculty?.map((user) => (
-                  <tr key={user._id} className={!user.isActive ? 'bg-gray-50 opacity-75' : ''}>
-                    <td>
+                  <tr key={user._id} className={cn('hover:bg-slate-50 transition-colors', !user.isActive && 'bg-slate-50 opacity-75')}>
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           'w-10 h-10 rounded-full flex items-center justify-center',
-                          user.role === 'admin' ? 'bg-red-100' : 'bg-blue-100'
+                          user.role === 'admin' ? 'bg-red-100' : 'bg-sky-100'
                         )}>
                           {user.role === 'admin' ? (
                             <Shield className="w-5 h-5 text-red-600" />
                           ) : (
-                            <Users className="w-5 h-5 text-blue-600" />
+                            <Users className="w-5 h-5 text-sky-600" />
                           )}
                         </div>
                         <div>
-                          <p className="font-medium">{user.fullName}</p>
-                          <p className="text-sm text-gray-500">{user.email}</p>
+                          <p className="font-medium text-slate-900">{user.fullName}</p>
+                          <p className="text-sm text-slate-500">{user.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td>
-                      <span className={cn(
-                        'badge',
-                        user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                      )}>
+                    <td className="px-6 py-4">
+                      <Badge variant={user.role === 'admin' ? 'destructive' : 'default'} className={user.role === 'admin' ? '' : 'bg-sky-100 text-sky-700 hover:bg-sky-100'}>
                         {user.role === 'admin' ? 'Admin' : 'Faculty'}
-                      </span>
+                      </Badge>
                     </td>
-                    <td>
-                      <span className={cn(
-                        'badge',
-                        user.isActive ? 'badge-success' : 'badge-gray'
-                      )}>
+                    <td className="px-6 py-4">
+                      <Badge variant={user.isActive ? 'default' : 'secondary'} className={user.isActive ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : ''}>
                         {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      </Badge>
                     </td>
-                    <td>
-                      <span className="text-sm text-gray-500">
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-slate-500">
                         {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
                       </span>
                     </td>
-                    <td>
+                    <td className="px-6 py-4">
                       <div className="relative">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setActionMenuOpen(actionMenuOpen === user._id ? null : user._id)}
-                          className="btn-ghost btn-sm"
+                          className="h-8 w-8"
                         >
                           <MoreVertical className="w-4 h-4" />
-                        </button>
+                        </Button>
                         
                         {actionMenuOpen === user._id && (
                           <>
@@ -199,14 +211,14 @@ export default function FacultyPage() {
                               className="fixed inset-0 z-10" 
                               onClick={() => setActionMenuOpen(null)}
                             />
-                            <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                            <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-20">
                               <button
                                 onClick={() => {
                                   setSelectedFaculty(user);
                                   setShowEditModal(true);
                                   setActionMenuOpen(null);
                                 }}
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2 text-slate-700"
                               >
                                 <Edit2 className="w-4 h-4" />
                                 Edit Details
@@ -217,14 +229,14 @@ export default function FacultyPage() {
                                   setShowResetPasswordModal(true);
                                   setActionMenuOpen(null);
                                 }}
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2 text-slate-700"
                               >
                                 <Key className="w-4 h-4" />
                                 Reset Password
                               </button>
                               <button
                                 onClick={() => handleToggleActive(user._id)}
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2 text-slate-700"
                               >
                                 {user.isActive ? (
                                   <>
@@ -238,7 +250,7 @@ export default function FacultyPage() {
                                   </>
                                 )}
                               </button>
-                              <hr className="my-1" />
+                              <hr className="my-1 border-slate-200" />
                               <button
                                 onClick={() => handleDelete(user._id)}
                                 className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
@@ -257,61 +269,64 @@ export default function FacultyPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
       {/* Add Faculty Modal */}
-      {showModal && (
-        <AddFacultyModal onClose={() => setShowModal(false)} />
-      )}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-md">
+          <AddFacultyModal onClose={() => setShowModal(false)} />
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Faculty Modal */}
-      {showEditModal && selectedFaculty && (
-        <EditFacultyModal
-          faculty={selectedFaculty}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedFaculty(null);
-          }}
-        />
-      )}
+      <Dialog open={showEditModal && !!selectedFaculty} onOpenChange={(open) => { setShowEditModal(open); if (!open) setSelectedFaculty(null); }}>
+        <DialogContent className="sm:max-w-md">
+          {selectedFaculty && (
+            <EditFacultyModal
+              faculty={selectedFaculty}
+              onClose={() => {
+                setShowEditModal(false);
+                setSelectedFaculty(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Reset Password Confirmation */}
-      {showResetPasswordModal && selectedFaculty && (
-        <div className="modal-overlay" onClick={() => setShowResetPasswordModal(false)}>
-          <div className="modal-content max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Key className="w-8 h-8 text-yellow-600" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900">Reset Password?</h2>
-                <p className="text-gray-600 mt-2">
-                  This will generate a new password for <strong>{selectedFaculty.fullName}</strong>.
-                  The user will need to use the new password to log in.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowResetPasswordModal(false);
-                    setSelectedFaculty(null);
-                  }}
-                  className="flex-1 btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleResetPassword}
-                  className="flex-1 btn-primary bg-yellow-600 hover:bg-yellow-700"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Reset Password
-                </button>
-              </div>
+      <Dialog open={showResetPasswordModal && !!selectedFaculty} onOpenChange={(open) => { setShowResetPasswordModal(open); if (!open) setSelectedFaculty(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Key className="w-8 h-8 text-amber-600" />
             </div>
+            <DialogTitle className="text-xl">Reset Password?</DialogTitle>
+            <p className="text-slate-600 mt-2">
+              This will generate a new password for <strong>{selectedFaculty?.fullName}</strong>.
+              The user will need to use the new password to log in.
+            </p>
           </div>
-        </div>
-      )}
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowResetPasswordModal(false);
+                setSelectedFaculty(null);
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              className="flex-1 bg-amber-600 hover:bg-amber-700"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Reset Password
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -381,175 +396,168 @@ Note: The user can change their password after logging in.`;
   // Show credentials screen after successful creation
   if (createdCredentials) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-          <div className="p-6">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-10 h-10 text-green-600" />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                {createdCredentials.role === 'admin' ? 'Admin' : 'Faculty'} Created Successfully!
-              </h2>
-              <p className="text-gray-600 mt-1">Share these credentials with the user</p>
-            </div>
+      <>
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-10 h-10 text-emerald-600" />
+          </div>
+          <DialogTitle className="text-xl">
+            {createdCredentials.role === 'admin' ? 'Admin' : 'Faculty'} Created Successfully!
+          </DialogTitle>
+          <p className="text-slate-600 mt-1">Share these credentials with the user</p>
+        </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Name:</span>
-                  <span className="font-medium text-gray-900">{createdCredentials.fullName}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Role:</span>
-                  <span className={cn(
-                    'badge',
-                    createdCredentials.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
-                  )}>
-                    {createdCredentials.role === 'admin' ? 'Admin' : 'Faculty'}
-                  </span>
-                </div>
-                <hr className="border-gray-200" />
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Email:</span>
-                  <span className="font-medium text-gray-900">{createdCredentials.email}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 flex items-center gap-1">
-                    <Key className="w-4 h-4" />
-                    Password:
-                  </span>
-                  <span className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    {createdCredentials.password}
-                  </span>
-                </div>
-              </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Name:</span>
+              <span className="font-medium text-slate-900">{createdCredentials.fullName}</span>
             </div>
-
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
-              <p className="text-sm text-yellow-800">
-                <strong>Important:</strong> Please save or share these credentials now. 
-                The password won't be shown again. The user can change their password after logging in.
-              </p>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Role:</span>
+              <Badge variant={createdCredentials.role === 'admin' ? 'destructive' : 'default'} className={createdCredentials.role === 'admin' ? '' : 'bg-sky-100 text-sky-700'}>
+                {createdCredentials.role === 'admin' ? 'Admin' : 'Faculty'}
+              </Badge>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleCopyCredentials}
-                className="flex-1 btn-secondary flex items-center justify-center gap-2"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-5 h-5 text-green-600" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5" />
-                    Copy to Clipboard
-                  </>
-                )}
-              </button>
-              <button onClick={onClose} className="flex-1 btn-primary">
-                Done
-              </button>
+            <hr className="border-slate-200" />
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Email:</span>
+              <span className="font-medium text-slate-900">{createdCredentials.email}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 flex items-center gap-1">
+                <Key className="w-4 h-4" />
+                Password:
+              </span>
+              <span className="font-mono font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded">
+                {createdCredentials.password}
+              </span>
             </div>
           </div>
         </div>
-      </div>
+
+        <Alert className="mb-6 bg-amber-50 border-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <strong>Important:</strong> Please save or share these credentials now. 
+            The password won't be shown again.
+          </AlertDescription>
+        </Alert>
+
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleCopyCredentials}
+            className="flex-1"
+          >
+            {copied ? (
+              <>
+                <Check className="w-5 h-5 mr-2 text-emerald-600" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="w-5 h-5 mr-2" />
+                Copy to Clipboard
+              </>
+            )}
+          </Button>
+          <Button onClick={onClose} className="flex-1 bg-sky-600 hover:bg-sky-700">
+            Done
+          </Button>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New Faculty</h2>
+    <>
+      <DialogHeader>
+        <DialogTitle>Add New Faculty</DialogTitle>
+      </DialogHeader>
 
-          {error && (
-            <div className="alert-error mb-4">
-              <AlertCircle className="w-5 h-5" />
-              <span>{error}</span>
-            </div>
-          )}
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="label">Full Name</label>
-              <input
-                type="text"
-                className="input"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="label">Email</label>
-              <input
-                type="email"
-                className="input"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Password will be auto-generated as: {formData.email.split('@')[0] || 'email'}@XXXX
-              </p>
-            </div>
-
-            <div>
-              <label className="label">Role</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="faculty"
-                    checked={formData.role === 'faculty'}
-                    onChange={(e) => setFormData({ ...formData, role: 'faculty' })}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-blue-600" />
-                    <span>Faculty</span>
-                  </div>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="admin"
-                    checked={formData.role === 'admin'}
-                    onChange={(e) => setFormData({ ...formData, role: 'admin' })}
-                    className="w-4 h-4 text-red-600"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-red-600" />
-                    <span>Admin</span>
-                  </div>
-                </label>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {formData.role === 'admin' 
-                  ? 'Admins have full system access including faculty management.' 
-                  : 'Faculty can manage students, courses, sessions, and attendance.'}
-              </p>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button type="button" onClick={onClose} className="btn-secondary">
-                Cancel
-              </button>
-              <button type="submit" disabled={loading} className="btn-primary">
-                {loading ? 'Creating...' : 'Create User'}
-              </button>
-            </div>
-          </form>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label>Full Name</Label>
+          <Input
+            type="text"
+            value={formData.fullName}
+            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+            className="mt-1"
+            required
+          />
         </div>
-      </div>
-    </div>
+
+        <div>
+          <Label>Email</Label>
+          <Input
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="mt-1"
+            required
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Password will be auto-generated as: {formData.email.split('@')[0] || 'email'}@XXXX
+          </p>
+        </div>
+
+        <div>
+          <Label>Role</Label>
+          <div className="flex gap-4 mt-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="role"
+                value="faculty"
+                checked={formData.role === 'faculty'}
+                onChange={() => setFormData({ ...formData, role: 'faculty' })}
+                className="w-4 h-4 text-sky-600"
+              />
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-sky-600" />
+                <span>Faculty</span>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="role"
+                value="admin"
+                checked={formData.role === 'admin'}
+                onChange={() => setFormData({ ...formData, role: 'admin' })}
+                className="w-4 h-4 text-red-600"
+              />
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-red-600" />
+                <span>Admin</span>
+              </div>
+            </label>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            {formData.role === 'admin' 
+              ? 'Admins have full system access including faculty management.' 
+              : 'Faculty can manage students, courses, sessions, and attendance.'}
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading} className="bg-sky-600 hover:bg-sky-700">
+            {loading ? 'Creating...' : 'Create User'}
+          </Button>
+        </div>
+      </form>
+    </>
   );
 }
 
@@ -592,86 +600,84 @@ function EditFacultyModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Edit Faculty</h2>
+    <>
+      <DialogHeader>
+        <DialogTitle>Edit Faculty</DialogTitle>
+      </DialogHeader>
 
-          {error && (
-            <div className="alert-error mb-4">
-              <AlertCircle className="w-5 h-5" />
-              <span>{error}</span>
-            </div>
-          )}
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="label">Full Name</label>
-              <input
-                type="text"
-                className="input"
-                value={formData.fullName}
-                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="label">Email</label>
-              <input
-                type="email"
-                className="input"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="label">Role</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="faculty"
-                    checked={formData.role === 'faculty'}
-                    onChange={() => setFormData({ ...formData, role: 'faculty' })}
-                    className="w-4 h-4 text-blue-600"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-blue-600" />
-                    <span>Faculty</span>
-                  </div>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="admin"
-                    checked={formData.role === 'admin'}
-                    onChange={() => setFormData({ ...formData, role: 'admin' })}
-                    className="w-4 h-4 text-red-600"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-red-600" />
-                    <span>Admin</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button type="button" onClick={onClose} className="btn-secondary">
-                Cancel
-              </button>
-              <button type="submit" disabled={loading} className="btn-primary">
-                {loading ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label>Full Name</Label>
+          <Input
+            type="text"
+            value={formData.fullName}
+            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+            className="mt-1"
+            required
+          />
         </div>
-      </div>
-    </div>
+
+        <div>
+          <Label>Email</Label>
+          <Input
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="mt-1"
+            required
+          />
+        </div>
+
+        <div>
+          <Label>Role</Label>
+          <div className="flex gap-4 mt-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="role"
+                value="faculty"
+                checked={formData.role === 'faculty'}
+                onChange={() => setFormData({ ...formData, role: 'faculty' })}
+                className="w-4 h-4 text-sky-600"
+              />
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-sky-600" />
+                <span>Faculty</span>
+              </div>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="role"
+                value="admin"
+                checked={formData.role === 'admin'}
+                onChange={() => setFormData({ ...formData, role: 'admin' })}
+                className="w-4 h-4 text-red-600"
+              />
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-red-600" />
+                <span>Admin</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading} className="bg-sky-600 hover:bg-sky-700">
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </form>
+    </>
   );
 }

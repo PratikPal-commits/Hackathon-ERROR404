@@ -29,9 +29,14 @@ export default defineSchema({
     faceEmbedding: v.optional(v.array(v.number())), // 128-dimensional face embedding
     faceImageUrl: v.optional(v.string()), // Reference face image
     hasFaceData: v.boolean(),
-    // Fingerprint data (simulated)
+    // Fingerprint data (simulated hash - legacy)
     fingerprintHash: v.optional(v.string()), // Simulated fingerprint hash
     hasFingerprint: v.boolean(),
+    // WebAuthn fingerprint data (real device biometrics)
+    webauthnCredentialId: v.optional(v.string()),  // Base64 encoded credential ID
+    webauthnPublicKey: v.optional(v.string()),     // Base64 encoded public key
+    webauthnCounter: v.optional(v.number()),       // Signature counter
+    webauthnDeviceName: v.optional(v.string()),    // Device name (e.g., "iPhone", "Android")
     // QR Code for ID card
     qrCode: v.optional(v.string()),
     hasIdCard: v.boolean(),

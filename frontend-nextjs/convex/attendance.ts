@@ -541,3 +541,104 @@ export const verifyFingerprintAndMark = mutation({
     };
   },
 });
+
+// Mark attendance via WebAuthn fingerprint (client verifies, then calls this with student ID)
+export const markWithWebAuthn = mutation({
+  args: {
+    sessionCode: v.string(),
+    studentId: v.id("students"),
+    newCounter: v.number(),
+    deviceInfo: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Get student
+    const student = await ctx.db.get(args.studentId);
+    if (!student) {
+      throw new Error("Student not found");
+    }
+
+    // Update WebAuthn counter to prevent replay attacks
+    await ctx.db.patch(args.studentId, {
+      webauthnCounter: args.newCounter,
+    });
+
+    // Find session by code
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_code", (q) => q.eq("attendanceCode", args.sessionCode))
+      .first();
+
+    if (!session) {
+      throw new Error("Invalid session code");
+    }
+
+    if (!session.isActive) {
+      throw new Error("Session is not active for attendance");
+    }
+
+    // Check for duplicate
+    const existing = await ctx.db
+      .query("attendance")
+      .withIndex("by_student_session", (q) =>
+        q.eq("studentId", student._id).eq("sessionId", session._id)
+      )
+      .first();
+
+    if (existing) {
+      return {
+        success: false,
+        message: "Attendance already marked",
+        student: { name: student.name, rollNo: student.rollNo },
+      };
+    }
+
+    // Check enrollment
+    const enrollment = await ctx.db
+      .query("courseEnrollments")
+      .withIndex("by_course_student", (q) =>
+        q.eq("courseId", session.courseId).eq("studentId", student._id)
+      )
+      .first();
+
+    if (!enrollment) {
+      return {
+        success: false,
+        message: "Student is not enrolled in this course",
+        student: { name: student.name, rollNo: student.rollNo },
+      };
+    }
+
+    // Determine status
+    const now = new Date();
+    const sessionStart = new Date(`${session.sessionDate}T${session.startTime}`);
+    const lateThreshold = new Date(sessionStart.getTime() + 15 * 60 * 1000);
+
+    let status: "present" | "late" = "present";
+    if (now > lateThreshold) {
+      status = "late";
+    }
+
+    await ctx.db.insert("attendance", {
+      studentId: student._id,
+      sessionId: session._id,
+      status,
+      verificationMethod: "fingerprint",
+      fingerprintMatch: true,
+      overallConfidence: 98, // Higher confidence for WebAuthn
+      markedAt: Date.now(),
+      deviceInfo: args.deviceInfo,
+      ipAddress: args.ipAddress,
+      isKiosk: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: `Welcome ${student.name}! Attendance marked as ${status}.`,
+      student: { name: student.name, rollNo: student.rollNo },
+      status,
+    };
+  },
+});

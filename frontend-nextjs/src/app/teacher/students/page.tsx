@@ -586,7 +586,7 @@ function EnrollModal({
     setError('');
     
     try {
-      // Use the fingerprint service to capture
+      // Use simulated fingerprint enrollment
       const result = await enrollFingerprint(student.rollNo);
       
       if (result.success && result.hash) {
@@ -791,22 +791,66 @@ function EnrollModal({
               <div className="w-32 h-32 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
                 <Fingerprint className="w-12 h-12 text-gray-400" />
               </div>
+              
               <p className="text-gray-600 mb-4">
-                Fingerprint enrollment uses simulated tokens.
-                <br />
-                Click below to generate a fingerprint token.
+                Click below to enroll fingerprint for this student.
               </p>
-              <button
-                onClick={handleEnrollFingerprint}
-                disabled={loading || student.hasFingerprint}
-                className="btn-primary"
-              >
-                {loading
-                  ? 'Enrolling...'
-                  : student.hasFingerprint
-                  ? 'Already Enrolled'
-                  : 'Enroll Fingerprint'}
-              </button>
+
+              {/* Current Enrollment Status */}
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <span
+                  className={cn(
+                    'badge',
+                    student.hasFingerprint ? 'badge-success' : 'badge-gray'
+                  )}
+                >
+                  {student.hasFingerprint ? 'Enrolled' : 'Not Enrolled'}
+                </span>
+              </div>
+
+              {/* Enrollment Button */}
+              {student.hasFingerprint ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+                    This student already has fingerprint data enrolled. Re-enrolling will replace the existing data.
+                  </p>
+                  <button
+                    onClick={handleEnrollFingerprint}
+                    disabled={loading}
+                    className="btn-secondary"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Enrolling...
+                      </>
+                    ) : (
+                      <>
+                        <Fingerprint className="w-4 h-4 mr-2" />
+                        Re-enroll Fingerprint
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleEnrollFingerprint}
+                  disabled={loading}
+                  className="btn-primary"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Enrolling...
+                    </>
+                  ) : (
+                    <>
+                      <Fingerprint className="w-4 h-4 mr-2" />
+                      Enroll Fingerprint
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           )}
 

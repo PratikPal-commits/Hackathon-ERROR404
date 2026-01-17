@@ -180,6 +180,25 @@ export const getByQRCode = query({
   },
 });
 
+// Get all students with WebAuthn credentials enrolled
+export const listWithWebAuthn = query({
+  args: {},
+  handler: async (ctx) => {
+    const students = await ctx.db.query("students").collect();
+    return students
+      .filter((s) => s.webauthnCredentialId && s.webauthnPublicKey)
+      .map((s) => ({
+        _id: s._id,
+        name: s.name,
+        rollNo: s.rollNo,
+        webauthnCredentialId: s.webauthnCredentialId,
+        webauthnPublicKey: s.webauthnPublicKey,
+        webauthnCounter: s.webauthnCounter || 0,
+        webauthnDeviceName: s.webauthnDeviceName,
+      }));
+  },
+});
+
 // Update student (also syncs changes to linked user account)
 export const update = mutation({
   args: {
@@ -346,6 +365,81 @@ export const enrollFingerprint = mutation({
     });
 
     return { success: true, message: "Fingerprint enrolled successfully" };
+  },
+});
+
+// Enroll WebAuthn fingerprint for student (real device biometrics)
+export const enrollWebAuthn = mutation({
+  args: {
+    id: v.id("students"),
+    credentialId: v.string(),
+    publicKey: v.string(),
+    counter: v.number(),
+    deviceName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const student = await ctx.db.get(args.id);
+    if (!student) {
+      throw new Error("Student not found");
+    }
+
+    await ctx.db.patch(args.id, {
+      webauthnCredentialId: args.credentialId,
+      webauthnPublicKey: args.publicKey,
+      webauthnCounter: args.counter,
+      webauthnDeviceName: args.deviceName,
+      hasFingerprint: true,
+      isEnrolled: true,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, message: "Fingerprint enrolled successfully via WebAuthn" };
+  },
+});
+
+// Update WebAuthn counter after verification (for replay attack prevention)
+export const updateWebAuthnCounter = mutation({
+  args: {
+    id: v.id("students"),
+    counter: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const student = await ctx.db.get(args.id);
+    if (!student) {
+      throw new Error("Student not found");
+    }
+
+    await ctx.db.patch(args.id, {
+      webauthnCounter: args.counter,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+// Clear fingerprint enrollment for student
+export const clearFingerprint = mutation({
+  args: {
+    id: v.id("students"),
+  },
+  handler: async (ctx, args) => {
+    const student = await ctx.db.get(args.id);
+    if (!student) {
+      throw new Error("Student not found");
+    }
+
+    await ctx.db.patch(args.id, {
+      fingerprintHash: undefined,
+      webauthnCredentialId: undefined,
+      webauthnPublicKey: undefined,
+      webauthnCounter: undefined,
+      webauthnDeviceName: undefined,
+      hasFingerprint: false,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, message: "Fingerprint data cleared" };
   },
 });
 

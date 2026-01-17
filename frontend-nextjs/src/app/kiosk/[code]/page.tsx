@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Webcam from 'react-webcam';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -18,9 +18,14 @@ import {
   RefreshCw,
   AlertTriangle,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
-import { initializeFaceAPI, extractFaceEmbedding, verifyFace, getServiceStatus, FaceErrorType } from '@/services/faceRecognition';
-import { verifyFingerprint, captureFingerprint } from '@/services/fingerprint';
+import { initializeFaceAPI, extractFaceEmbedding, verifyFace, getServiceStatus } from '@/services/faceRecognition';
+import { captureFingerprint } from '@/services/fingerprint';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type Step = 'loading' | 'select_method' | 'qr_scan' | 'face_capture' | 'fingerprint' | 'processing' | 'success' | 'error';
 
@@ -34,7 +39,6 @@ interface VerificationResult {
 
 export default function KioskAttendancePage() {
   const params = useParams();
-  const router = useRouter();
   const code = params.code as string;
 
   const [step, setStep] = useState<Step>('loading');
@@ -89,14 +93,12 @@ export default function KioskAttendancePage() {
   };
 
   const handleQRScanned = (qrData: string) => {
-    // Parse QR data format: SMARTATTEND:DEMO:ROLLNO:TIMESTAMP
-    // Extract roll number (3rd element)
     let rollNo = qrData;
     
     if (qrData.startsWith('SMARTATTEND:')) {
       const parts = qrData.split(':');
       if (parts.length >= 3) {
-        rollNo = parts[2]; // Get the roll number (3rd element)
+        rollNo = parts[2];
       }
     }
     
@@ -108,7 +110,6 @@ export default function KioskAttendancePage() {
   const handleCaptureFace = async () => {
     if (!webcamRef.current || !scannedQR) return;
 
-    // Check if student data is loaded
     if (scannedStudent === undefined) {
       setError('Loading student data...');
       return;
@@ -126,7 +127,6 @@ export default function KioskAttendancePage() {
       return;
     }
 
-    // Check if video is ready
     if (videoElement.readyState < 2 || videoElement.videoWidth === 0 || videoElement.videoHeight === 0) {
       setError('Camera not ready. Please wait a moment and try again.');
       return;
@@ -135,13 +135,9 @@ export default function KioskAttendancePage() {
     setStep('processing');
 
     try {
-      console.log('[Kiosk] Extracting embedding from video:', videoElement.videoWidth, 'x', videoElement.videoHeight);
-      
-      // Extract face embedding from live camera
       const extractionResult = await extractFaceEmbedding(videoElement);
       
       if (!extractionResult.success || !extractionResult.embedding) {
-        // Use detailed error message from service
         const errorMsg = extractionResult.error 
           ? `${extractionResult.error.message}. ${extractionResult.error.suggestion}`
           : 'No face detected. Please position your face in the circle and try again.';
@@ -151,15 +147,12 @@ export default function KioskAttendancePage() {
       }
 
       const capturedEmbedding = extractionResult.embedding;
-      console.log('[Kiosk] Got embedding with', capturedEmbedding.length, 'dimensions');
 
       let faceConfidence = 0;
       let faceMatch = false;
       let message = '';
 
-      // Check if student has enrolled face data
       if (scannedStudent.hasFaceData && scannedStudent.faceEmbedding) {
-        // Compare with stored embedding
         const verificationResult = verifyFace(capturedEmbedding, scannedStudent.faceEmbedding);
         faceConfidence = verificationResult.confidence;
         faceMatch = verificationResult.match;
@@ -176,15 +169,11 @@ export default function KioskAttendancePage() {
           return;
         }
       } else {
-        // Student has no face data enrolled - allow with warning
-        // In production, you might want to require enrollment first
-        console.log('[Kiosk] Student has no face data, allowing verification with captured face');
-        faceConfidence = 85; // Default confidence for first-time
+        faceConfidence = 85;
         faceMatch = true;
         message = 'Face captured (no enrolled face to compare)';
       }
       
-      // Format QR data for Convex (expecting SMARTATTEND:ID:ROLLNO format)
       const formattedQR = `SMARTATTEND:DEMO:${scannedQR}`;
 
       const response = await verifyAndMark({
@@ -221,7 +210,6 @@ export default function KioskAttendancePage() {
     setStep('processing');
 
     try {
-      // Simulate fingerprint capture
       const captureResult = await captureFingerprint();
       
       if (!captureResult.success || !captureResult.hash) {
@@ -271,306 +259,355 @@ export default function KioskAttendancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+      </div>
+
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 py-4 px-6">
+      <header className="relative z-10 bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 py-4 px-6">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <Shield className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/25">
+              <Shield className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="font-bold">Attendance Kiosk</h1>
+              <h1 className="font-bold text-lg">Attendance Kiosk</h1>
               {session && (
-                <p className="text-sm text-gray-400">
-                  {session.courseCode} - {session.courseName} | Code: {code}
+                <p className="text-sm text-slate-400">
+                  {session.courseCode} - {session.courseName} | Code: <span className="font-mono text-sky-400">{code}</span>
                 </p>
               )}
             </div>
           </div>
-          <Link href="/kiosk" className="text-gray-400 hover:text-white">
-            <ArrowLeft className="w-6 h-6" />
+          <Link href="/kiosk">
+            <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white hover:bg-slate-700">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
           </Link>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto p-6">
+      <main className="relative z-10 max-w-2xl mx-auto p-6">
         {step === 'loading' && (
-          <div className="text-center py-20">
-            <Loader2 className="w-16 h-16 mx-auto animate-spin text-blue-500" />
-            <p className="mt-4 text-gray-400">Loading session...</p>
+          <div className="text-center py-24">
+            <div className="w-20 h-20 mx-auto mb-6 relative">
+              <div className="absolute inset-0 bg-sky-500/20 rounded-full animate-ping" />
+              <div className="relative w-full h-full bg-slate-800 rounded-full flex items-center justify-center">
+                <Loader2 className="w-10 h-10 animate-spin text-sky-500" />
+              </div>
+            </div>
+            <p className="text-slate-400 text-lg">Loading session...</p>
           </div>
         )}
 
         {step === 'select_method' && session && (
-          <div className="space-y-6">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold">Mark Your Attendance</h2>
-              <p className="text-gray-400 mt-2">
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold mb-2">Mark Your Attendance</h2>
+              <p className="text-slate-400">
                 {session.courseCode} - {session.courseName}
               </p>
-              <p className="text-gray-500 text-sm">
+              <p className="text-slate-500 text-sm mt-1">
                 {session.startTime} - {session.endTime}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <button
+              <Card 
+                className="bg-slate-800/50 border-2 border-slate-700 hover:border-sky-500 cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-sky-500/10 group"
                 onClick={() => handleMethodSelect('face_qr')}
-                className="bg-gray-800 border-2 border-gray-700 hover:border-blue-500 rounded-xl p-6 text-center transition-colors"
               >
-                <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Camera className="w-8 h-8 text-blue-400" />
-                </div>
-                <h3 className="font-semibold text-lg">QR + Face</h3>
-                <p className="text-sm text-gray-400 mt-1">
-                  Scan ID card + Face verification
-                </p>
-              </button>
+                <CardContent className="pt-8 pb-8 text-center">
+                  <div className="w-20 h-20 bg-sky-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Camera className="w-10 h-10 text-sky-400" />
+                  </div>
+                  <h3 className="font-semibold text-xl text-white mb-1">QR + Face</h3>
+                  <p className="text-sm text-slate-400">
+                    Scan ID card + Face verification
+                  </p>
+                </CardContent>
+              </Card>
 
-              <button
+              <Card 
+                className="bg-slate-800/50 border-2 border-slate-700 hover:border-purple-500 cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/10 group"
                 onClick={() => handleMethodSelect('fingerprint')}
-                className="bg-gray-800 border-2 border-gray-700 hover:border-purple-500 rounded-xl p-6 text-center transition-colors"
               >
-                <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Fingerprint className="w-8 h-8 text-purple-400" />
-                </div>
-                <h3 className="font-semibold text-lg">Fingerprint</h3>
-                <p className="text-sm text-gray-400 mt-1">
-                  Use fingerprint scanner
-                </p>
-              </button>
+                <CardContent className="pt-8 pb-8 text-center">
+                  <div className="w-20 h-20 bg-purple-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <Fingerprint className="w-10 h-10 text-purple-400" />
+                  </div>
+                  <h3 className="font-semibold text-xl text-white mb-1">Fingerprint</h3>
+                  <p className="text-sm text-slate-400">
+                    Use fingerprint scanner
+                  </p>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}
 
         {step === 'qr_scan' && (
           <div className="space-y-6">
-            <div className="text-center mb-4">
-              <h2 className="text-2xl font-bold">Scan Your ID Card</h2>
-              <p className="text-gray-400">Position your ID card QR code in the camera view</p>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-2">Scan Your ID Card</h2>
+              <p className="text-slate-400">Position your ID card QR code in the camera view</p>
             </div>
 
-            <div className="relative bg-gray-800 rounded-xl overflow-hidden" style={{ minHeight: '300px' }}>
-              <Scanner
-                onScan={(result) => {
-                  if (result && result.length > 0) {
-                    const qrData = result[0].rawValue;
-                    if (qrData) {
-                      handleQRScanned(qrData);
+            <Card className="bg-slate-800/50 border-slate-700 overflow-hidden">
+              <div className="relative" style={{ minHeight: '320px' }}>
+                <Scanner
+                  onScan={(result) => {
+                    if (result && result.length > 0) {
+                      const qrData = result[0].rawValue;
+                      if (qrData) {
+                        handleQRScanned(qrData);
+                      }
                     }
-                  }
-                }}
-                onError={(error) => {
-                  console.error('QR Scanner error:', error);
-                  setCameraError('Unable to access camera. Please allow camera permissions and make sure you are using HTTPS.');
-                }}
-                scanDelay={500}
-                constraints={{
-                  facingMode: { ideal: 'environment' },
-                  width: { ideal: 1280 },
-                  height: { ideal: 720 },
-                }}
-                styles={{
-                  container: {
-                    width: '100%',
-                    height: '100%',
-                    minHeight: '300px',
-                  },
-                  video: {
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                  },
-                }}
-                components={{
-                  finder: true,
-                }}
-              />
-            </div>
+                  }}
+                  onError={(error) => {
+                    console.error('QR Scanner error:', error);
+                    setCameraError('Unable to access camera. Please allow camera permissions.');
+                  }}
+                  scanDelay={500}
+                  constraints={{
+                    facingMode: { ideal: 'environment' },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                  }}
+                  styles={{
+                    container: { width: '100%', height: '100%', minHeight: '320px' },
+                    video: { width: '100%', height: '100%', objectFit: 'cover' },
+                  }}
+                  components={{ finder: true }}
+                />
+              </div>
+            </Card>
 
             {cameraError && (
-              <div className="bg-red-900/50 border border-red-500 rounded-lg p-4">
-                <p className="text-red-300 text-sm">{cameraError}</p>
-                <p className="text-yellow-400 text-xs mt-2">
-                  Tip: On mobile, camera requires HTTPS. Make sure you&apos;re accessing via https://
-                </p>
-              </div>
+              <Alert variant="destructive" className="bg-red-900/50 border-red-500/50 text-red-200">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{cameraError}</AlertDescription>
+              </Alert>
             )}
 
-            <div className="bg-gray-800 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <QrCode className="w-6 h-6 text-blue-400" />
-                <div>
-                  <p className="text-sm text-gray-300">Waiting for QR code...</p>
-                  <p className="text-xs text-gray-500">Hold your ID card steady in front of the camera</p>
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-sky-500/20 rounded-xl flex items-center justify-center">
+                    <QrCode className="w-6 h-6 text-sky-400" />
+                  </div>
+                  <div>
+                    <p className="text-slate-200 font-medium">Waiting for QR code...</p>
+                    <p className="text-sm text-slate-500">Hold your ID card steady in front of the camera</p>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            <button onClick={handleReset} className="w-full bg-gray-700 hover:bg-gray-600 py-3 rounded-lg flex items-center justify-center gap-2">
-              <ArrowLeft className="w-5 h-5" />
+            <Button onClick={handleReset} variant="secondary" size="lg" className="w-full bg-slate-700 hover:bg-slate-600 text-white border-0">
+              <ArrowLeft className="w-5 h-5 mr-2" />
               Back
-            </button>
+            </Button>
           </div>
         )}
 
         {step === 'face_capture' && (
           <div className="space-y-6">
-            <div className="text-center mb-4">
-              <h2 className="text-2xl font-bold">Face Verification</h2>
-              <p className="text-gray-400">Position your face in the circle and click capture</p>
-              <p className="text-green-400 text-sm mt-2">ID: {scannedQR}</p>
-            </div>
-
-            <div className="relative bg-gray-800 rounded-xl overflow-hidden aspect-video">
-              <Webcam
-                ref={webcamRef}
-                audio={false}
-                screenshotFormat="image/jpeg"
-                videoConstraints={{
-                  width: 640,
-                  height: 480,
-                  facingMode: 'user',
-                }}
-                className="w-full h-full object-cover"
-                mirrored
-              />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-40 h-52 border-2 border-green-400 rounded-full animate-pulse"></div>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-2">Face Verification</h2>
+              <p className="text-slate-400">Position your face in the circle and click capture</p>
+              <div className="inline-flex items-center gap-2 mt-3 bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-full">
+                <CheckCircle className="w-4 h-4" />
+                <span className="font-mono text-sm">ID: {scannedQR}</span>
               </div>
             </div>
 
-            <div className="bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-400">Tips for better verification:</p>
-              <ul className="text-sm text-gray-500 mt-2 space-y-1">
-                <li>- Look directly at the camera</li>
-                <li>- Ensure good lighting on your face</li>
-                <li>- Remove glasses or hats if possible</li>
-              </ul>
-            </div>
+            <Card className="bg-slate-800/50 border-slate-700 overflow-hidden">
+              <div className="relative aspect-video">
+                <Webcam
+                  ref={webcamRef}
+                  audio={false}
+                  screenshotFormat="image/jpeg"
+                  videoConstraints={{
+                    width: 640,
+                    height: 480,
+                    facingMode: 'user',
+                  }}
+                  className="w-full h-full object-cover"
+                  mirrored
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-44 h-56 border-4 border-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/20" />
+                </div>
+              </div>
+            </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardContent className="py-4">
+                <p className="text-sm text-slate-400 mb-2">Tips for better verification:</p>
+                <ul className="text-sm text-slate-500 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-sky-400 rounded-full" />
+                    Look directly at the camera
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-sky-400 rounded-full" />
+                    Ensure good lighting on your face
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-sky-400 rounded-full" />
+                    Remove glasses or hats if possible
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
 
             <div className="flex gap-3">
-              <button onClick={handleReset} className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg flex items-center justify-center gap-2">
-                <ArrowLeft className="w-5 h-5" />
+              <Button onClick={handleReset} variant="secondary" size="lg" className="flex-1 bg-slate-700 hover:bg-slate-600 text-white border-0">
+                <ArrowLeft className="w-5 h-5 mr-2" />
                 Back
-              </button>
-              <button onClick={handleCaptureFace} className="flex-1 bg-blue-600 hover:bg-blue-700 py-3 rounded-lg flex items-center justify-center gap-2">
-                <Camera className="w-5 h-5" />
+              </Button>
+              <Button onClick={handleCaptureFace} size="lg" className="flex-1 bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/25">
+                <Camera className="w-5 h-5 mr-2" />
                 Capture & Verify
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {step === 'fingerprint' && (
           <div className="space-y-6">
-            <div className="text-center mb-4">
-              <h2 className="text-2xl font-bold">Fingerprint Scan</h2>
-              <p className="text-gray-400">Place your finger on the scanner</p>
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-2">Fingerprint Scan</h2>
+              <p className="text-slate-400">Click to simulate fingerprint verification</p>
             </div>
 
-            <div className="bg-gray-800 rounded-xl p-8 flex flex-col items-center">
-              <div className={`w-32 h-40 border-4 rounded-2xl relative overflow-hidden transition-colors ${
-                scannerState === 'scanning' ? 'border-blue-500' :
-                scannerState === 'success' ? 'border-green-500' :
-                scannerState === 'error' ? 'border-red-500' :
-                'border-purple-500'
-              }`}>
-                <Fingerprint className={`w-full h-full p-4 ${
-                  scannerState === 'scanning' ? 'text-blue-400 animate-pulse' :
-                  scannerState === 'success' ? 'text-green-400' :
-                  scannerState === 'error' ? 'text-red-400' :
-                  'text-purple-400'
-                }`} />
-                {scannerState === 'scanning' && (
-                  <div className="absolute inset-0 bg-gradient-to-b from-blue-500/50 to-transparent animate-scan"></div>
-                )}
-              </div>
-              <p className="text-gray-400 mt-4">
-                {scannerState === 'scanning' ? 'Scanning...' :
-                 scannerState === 'success' ? 'Verified!' :
-                 scannerState === 'error' ? 'Try again' :
-                 'Ready to scan'}
-              </p>
-            </div>
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardContent className="py-12 flex flex-col items-center">
+                <div className={`w-36 h-44 border-4 rounded-3xl relative overflow-hidden transition-all duration-300 ${
+                  scannerState === 'scanning' ? 'border-sky-500 shadow-lg shadow-sky-500/30' :
+                  scannerState === 'success' ? 'border-emerald-500 shadow-lg shadow-emerald-500/30' :
+                  scannerState === 'error' ? 'border-red-500 shadow-lg shadow-red-500/30' :
+                  'border-purple-500 shadow-lg shadow-purple-500/20'
+                }`}>
+                  <Fingerprint className={`w-full h-full p-6 transition-colors ${
+                    scannerState === 'scanning' ? 'text-sky-400 animate-pulse' :
+                    scannerState === 'success' ? 'text-emerald-400' :
+                    scannerState === 'error' ? 'text-red-400' :
+                    'text-purple-400'
+                  }`} />
+                  {scannerState === 'scanning' && (
+                    <div className="absolute inset-0 bg-gradient-to-b from-sky-500/40 to-transparent animate-scan" />
+                  )}
+                </div>
+                <p className="text-slate-400 mt-6 font-medium">
+                  {scannerState === 'scanning' ? 'Verifying...' :
+                   scannerState === 'success' ? 'Verified!' :
+                   scannerState === 'error' ? 'Try again' :
+                   'Ready to scan'}
+                </p>
+              </CardContent>
+            </Card>
 
-            <button 
+            <Button 
               onClick={handleFingerprintVerify} 
               disabled={scannerState === 'scanning'}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 py-4 rounded-lg flex items-center justify-center gap-2 font-medium"
+              size="lg"
+              className="w-full h-14 bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-600/25 disabled:opacity-50"
             >
-              <Fingerprint className="w-5 h-5" />
-              {scannerState === 'scanning' ? 'Scanning...' : 'Verify Fingerprint'}
-            </button>
+              <Fingerprint className="w-5 h-5 mr-2" />
+              {scannerState === 'scanning' ? 'Verifying...' : 'Verify Fingerprint'}
+            </Button>
 
-            <button onClick={handleReset} className="w-full bg-gray-700 hover:bg-gray-600 py-3 rounded-lg flex items-center justify-center gap-2">
-              <ArrowLeft className="w-5 h-5" />
+            <Button onClick={handleReset} variant="secondary" size="lg" className="w-full bg-slate-700 hover:bg-slate-600 text-white border-0">
+              <ArrowLeft className="w-5 h-5 mr-2" />
               Back
-            </button>
+            </Button>
           </div>
         )}
 
         {step === 'processing' && (
-          <div className="text-center py-20">
-            <Loader2 className="w-16 h-16 mx-auto animate-spin text-blue-500" />
-            <p className="mt-4 text-gray-400">Verifying...</p>
+          <div className="text-center py-24">
+            <div className="w-24 h-24 mx-auto mb-6 relative">
+              <div className="absolute inset-0 bg-sky-500/20 rounded-full animate-ping" />
+              <div className="relative w-full h-full bg-slate-800 rounded-full flex items-center justify-center border-2 border-sky-500/30">
+                <Loader2 className="w-12 h-12 animate-spin text-sky-500" />
+              </div>
+            </div>
+            <p className="text-xl text-slate-300">Verifying...</p>
+            <p className="text-slate-500 mt-2">Please wait a moment</p>
           </div>
         )}
 
         {step === 'success' && result && (
           <div className="text-center py-12">
-            <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-16 h-16 text-green-500" />
+            <div className="w-28 h-28 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 rounded-full flex items-center justify-center mx-auto mb-8 ring-4 ring-emerald-500/30 animate-pulse">
+              <CheckCircle className="w-16 h-16 text-emerald-500" />
             </div>
-            <h2 className="text-3xl font-bold text-green-500 mb-2">Attendance Marked!</h2>
-            <p className="text-gray-400 mb-2">{result.message}</p>
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Sparkles className="w-6 h-6 text-amber-400" />
+              <h2 className="text-4xl font-bold text-emerald-500">Attendance Marked!</h2>
+              <Sparkles className="w-6 h-6 text-amber-400" />
+            </div>
+            <p className="text-slate-400 mb-3">{result.message}</p>
             {result.student && (
-              <p className="text-xl text-white">
+              <p className="text-2xl text-white font-medium">
                 Welcome, {result.student.name}!
               </p>
             )}
             {result.status && (
-              <p className={`text-sm mt-2 ${result.status === 'late' ? 'text-yellow-400' : 'text-green-400'}`}>
+              <div className={`inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full ${
+                result.status === 'late' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${result.status === 'late' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                 Status: {result.status.toUpperCase()}
-              </p>
+              </div>
             )}
 
-            <button onClick={handleReset} className="mt-8 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg flex items-center justify-center gap-2 mx-auto">
-              <RefreshCw className="w-5 h-5" />
+            <Button onClick={handleReset} size="lg" className="mt-10 bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/25">
+              <RefreshCw className="w-5 h-5 mr-2" />
               Mark Another
-            </button>
+            </Button>
           </div>
         )}
 
         {step === 'error' && (
           <div className="text-center py-12">
-            <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className={`w-28 h-28 rounded-full flex items-center justify-center mx-auto mb-8 ring-4 ${
+              result?.anomalyDetected 
+                ? 'bg-amber-500/20 ring-amber-500/30' 
+                : 'bg-red-500/20 ring-red-500/30'
+            }`}>
               {result?.anomalyDetected ? (
-                <AlertTriangle className="w-16 h-16 text-yellow-500" />
+                <AlertTriangle className="w-16 h-16 text-amber-500" />
               ) : (
                 <XCircle className="w-16 h-16 text-red-500" />
               )}
             </div>
-            <h2 className="text-3xl font-bold text-red-500 mb-2">
+            <h2 className={`text-3xl font-bold mb-3 ${result?.anomalyDetected ? 'text-amber-500' : 'text-red-500'}`}>
               {result?.anomalyDetected ? 'Verification Failed' : 'Error'}
             </h2>
-            <p className="text-gray-400 mb-4">{error || result?.message}</p>
+            <p className="text-slate-400 mb-6 max-w-md mx-auto">{error || result?.message}</p>
             {result?.anomalyDetected && (
-              <p className="text-yellow-400 text-sm">
-                This incident has been logged for review.
+              <p className="text-amber-400/80 text-sm bg-amber-500/10 inline-block px-4 py-2 rounded-full">
+                This incident has been logged for review
               </p>
             )}
 
-            <div className="flex gap-3 justify-center mt-8">
-              <button onClick={handleReset} className="bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg flex items-center gap-2">
-                <RefreshCw className="w-5 h-5" />
+            <div className="flex gap-3 justify-center mt-10">
+              <Button onClick={handleReset} variant="secondary" size="lg" className="bg-slate-700 hover:bg-slate-600 text-white border-0">
+                <RefreshCw className="w-5 h-5 mr-2" />
                 Try Again
-              </button>
-              <Link href="/kiosk" className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg flex items-center gap-2">
-                <ArrowLeft className="w-5 h-5" />
-                New Session
+              </Button>
+              <Link href="/kiosk">
+                <Button size="lg" className="bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/25">
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  New Session
+                </Button>
               </Link>
             </div>
           </div>

@@ -17,14 +17,32 @@ import {
   Copy,
   CheckCircle,
   Key,
+  GraduationCap,
 } from 'lucide-react';
 import { enrollFingerprint } from '@/services/fingerprint';
-import { initializeFaceAPI, extractFaceEmbedding, detectFaces, getServiceStatus, FaceErrorType } from '@/services/faceRecognition';
+import { initializeFaceAPI, extractFaceEmbedding, detectFaces, FaceErrorType } from '@/services/faceRecognition';
 import Webcam from 'react-webcam';
-
-function cn(...classes: (string | boolean | undefined)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function StudentsPage() {
   const searchParams = useSearchParams();
@@ -62,68 +80,75 @@ export default function StudentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <Input
             type="text"
             placeholder="Search students..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input pl-10"
+            className="pl-10 bg-white border-slate-200"
           />
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary">
+        <Button onClick={() => setShowModal(true)} className="bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/25">
           <Plus className="w-5 h-5 mr-2" />
           Add Student
-        </button>
+        </Button>
       </div>
 
       {/* Students Table */}
-      <div className="card">
-        <div className="table-container">
-          <table className="table">
-            <thead>
+      <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th>Student</th>
-                <th>Roll Number</th>
-                <th>Department</th>
-                <th>Semester</th>
-                <th>Enrollment</th>
-                <th>Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Student</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Roll Number</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Department</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Semester</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Enrollment</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-200">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8">
-                    <Loader2 className="w-8 h-8 mx-auto animate-spin text-blue-600" />
+                  <td colSpan={6} className="text-center py-12">
+                    <Loader2 className="w-8 h-8 mx-auto animate-spin text-sky-600" />
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-gray-500">
+                  <td colSpan={6} className="text-center py-12 text-slate-500">
                     No students found
                   </td>
                 </tr>
               ) : (
                 filteredStudents.map((student) => (
-                  <tr key={student._id}>
-                    <td>
-                      <div>
-                        <p className="font-medium">{student.name}</p>
-                        <p className="text-sm text-gray-500">{student.email}</p>
+                  <tr key={student._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center">
+                          <GraduationCap className="w-5 h-5 text-sky-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900">{student.name}</p>
+                          <p className="text-sm text-slate-500">{student.email}</p>
+                        </div>
                       </div>
                     </td>
-                    <td>{student.rollNo}</td>
-                    <td>{student.department}</td>
-                    <td>{student.semester || '-'}</td>
-                    <td>
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-sm text-slate-700">{student.rollNo}</span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-700">{student.department}</td>
+                    <td className="px-6 py-4 text-slate-700">{student.semester || '-'}</td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <span
                           className={cn(
-                            'w-6 h-6 rounded flex items-center justify-center',
+                            'w-7 h-7 rounded-lg flex items-center justify-center',
                             student.hasFaceData
-                              ? 'bg-green-100 text-green-600'
-                              : 'bg-gray-100 text-gray-400'
+                              ? 'bg-emerald-100 text-emerald-600'
+                              : 'bg-slate-100 text-slate-400'
                           )}
                           title={student.hasFaceData ? 'Face Enrolled' : 'Face Not Enrolled'}
                         >
@@ -131,10 +156,10 @@ export default function StudentsPage() {
                         </span>
                         <span
                           className={cn(
-                            'w-6 h-6 rounded flex items-center justify-center',
+                            'w-7 h-7 rounded-lg flex items-center justify-center',
                             student.hasFingerprint
-                              ? 'bg-green-100 text-green-600'
-                              : 'bg-gray-100 text-gray-400'
+                              ? 'bg-emerald-100 text-emerald-600'
+                              : 'bg-slate-100 text-slate-400'
                           )}
                           title={
                             student.hasFingerprint
@@ -146,24 +171,29 @@ export default function StudentsPage() {
                         </span>
                       </div>
                     </td>
-                    <td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => {
                             setSelectedStudentId(student._id);
                             setShowEnrollModal(true);
                           }}
-                          className="btn-ghost btn-sm"
+                          className="h-8 w-8 text-sky-600 hover:bg-sky-50"
                           title="Enroll Biometrics"
                         >
                           <Camera className="w-4 h-4" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDelete(student._id)}
-                          className="btn-ghost btn-sm text-red-600 hover:bg-red-50"
+                          className="h-8 w-8 text-red-600 hover:bg-red-50"
+                          title="Delete Student"
                         >
                           <X className="w-4 h-4" />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -172,25 +202,29 @@ export default function StudentsPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
       {/* Add Student Modal */}
-      {showModal && (
-        <AddStudentModal
-          onClose={() => setShowModal(false)}
-        />
-      )}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-md">
+          <AddStudentModal onClose={() => setShowModal(false)} />
+        </DialogContent>
+      </Dialog>
 
       {/* Enroll Modal */}
-      {showEnrollModal && selectedStudentId && (
-        <EnrollModal
-          studentId={selectedStudentId}
-          onClose={() => {
-            setShowEnrollModal(false);
-            setSelectedStudentId(null);
-          }}
-        />
-      )}
+      <Dialog open={showEnrollModal && !!selectedStudentId} onOpenChange={(open) => { setShowEnrollModal(open); if (!open) setSelectedStudentId(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          {selectedStudentId && (
+            <EnrollModal
+              studentId={selectedStudentId}
+              onClose={() => {
+                setShowEnrollModal(false);
+                setSelectedStudentId(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -212,7 +246,6 @@ function AddStudentModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // State for showing credentials after creation
   const [createdCredentials, setCreatedCredentials] = useState<{
     email: string;
     password: string;
@@ -238,7 +271,6 @@ function AddStudentModal({
         semester: formData.semester,
       });
       
-      // Show credentials modal instead of closing
       setCreatedCredentials({
         email: formData.email,
         password: result.generatedPassword,
@@ -269,174 +301,164 @@ Note: The student can change their password after logging in.`;
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Show credentials screen after successful creation
   if (createdCredentials) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-          <div className="p-6">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-10 h-10 text-green-600" />
-              </div>
-              <h2 className="text-xl font-semibold text-gray-900">Student Created Successfully!</h2>
-              <p className="text-gray-600 mt-1">Share these credentials with the student</p>
-            </div>
+      <>
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-10 h-10 text-emerald-600" />
+          </div>
+          <DialogTitle className="text-xl">Student Created Successfully!</DialogTitle>
+          <p className="text-slate-600 mt-1">Share these credentials with the student</p>
+        </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Name:</span>
-                  <span className="font-medium text-gray-900">{createdCredentials.name}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Roll No:</span>
-                  <span className="font-medium text-gray-900">{createdCredentials.rollNo}</span>
-                </div>
-                <hr className="border-gray-200" />
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Email:</span>
-                  <span className="font-medium text-gray-900">{createdCredentials.email}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 flex items-center gap-1">
-                    <Key className="w-4 h-4" />
-                    Password:
-                  </span>
-                  <span className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    {createdCredentials.password}
-                  </span>
-                </div>
-              </div>
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4">
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Name:</span>
+              <span className="font-medium text-slate-900">{createdCredentials.name}</span>
             </div>
-
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
-              <p className="text-sm text-yellow-800">
-                <strong>Important:</strong> Please save or share these credentials now. 
-                The password won't be shown again. The student can change their password after logging in.
-              </p>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Roll No:</span>
+              <span className="font-mono text-slate-900">{createdCredentials.rollNo}</span>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleCopyCredentials}
-                className="flex-1 btn-secondary flex items-center justify-center gap-2"
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-5 h-5 text-green-600" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5" />
-                    Copy to Clipboard
-                  </>
-                )}
-              </button>
-              <button onClick={onClose} className="flex-1 btn-primary">
-                Done
-              </button>
+            <hr className="border-slate-200" />
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600">Email:</span>
+              <span className="font-medium text-slate-900">{createdCredentials.email}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-600 flex items-center gap-1">
+                <Key className="w-4 h-4" />
+                Password:
+              </span>
+              <span className="font-mono font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded">
+                {createdCredentials.password}
+              </span>
             </div>
           </div>
         </div>
-      </div>
+
+        <Alert className="mb-6 bg-amber-50 border-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <strong>Important:</strong> Please save or share these credentials now. 
+            The password won't be shown again.
+          </AlertDescription>
+        </Alert>
+
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={handleCopyCredentials} className="flex-1">
+            {copied ? (
+              <>
+                <Check className="w-5 h-5 mr-2 text-emerald-600" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="w-5 h-5 mr-2" />
+                Copy to Clipboard
+              </>
+            )}
+          </Button>
+          <Button onClick={onClose} className="flex-1 bg-sky-600 hover:bg-sky-700">
+            Done
+          </Button>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Add New Student</h2>
+    <>
+      <DialogHeader>
+        <DialogTitle>Add New Student</DialogTitle>
+      </DialogHeader>
 
-          {error && (
-            <div className="alert-error mb-4">
-              <AlertCircle className="w-5 h-5" />
-              <span>{error}</span>
-            </div>
-          )}
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="label">Full Name</label>
-              <input
-                type="text"
-                className="input"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="label">Email</label>
-              <input
-                type="email"
-                className="input"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
-            </div>
-
-            <div>
-              <label className="label">Roll Number</label>
-              <input
-                type="text"
-                className="input"
-                value={formData.rollNo}
-                onChange={(e) => setFormData({ ...formData, rollNo: e.target.value })}
-                placeholder="e.g., CS2024001"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Password will be auto-generated as: {formData.rollNo || 'RollNo'}@XXXX
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label">Department</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  placeholder="e.g., Computer Science"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Semester</label>
-                <select
-                  className="input"
-                  value={formData.semester}
-                  onChange={(e) =>
-                    setFormData({ ...formData, semester: parseInt(e.target.value) })
-                  }
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                    <option key={sem} value={sem}>
-                      {sem}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button type="button" onClick={onClose} className="btn-secondary">
-                Cancel
-              </button>
-              <button type="submit" disabled={loading} className="btn-primary">
-                {loading ? 'Creating...' : 'Create Student'}
-              </button>
-            </div>
-          </form>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label>Full Name</Label>
+          <Input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="mt-1"
+            required
+          />
         </div>
-      </div>
-    </div>
+
+        <div>
+          <Label>Email</Label>
+          <Input
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="mt-1"
+            required
+          />
+        </div>
+
+        <div>
+          <Label>Roll Number</Label>
+          <Input
+            type="text"
+            value={formData.rollNo}
+            onChange={(e) => setFormData({ ...formData, rollNo: e.target.value })}
+            placeholder="e.g., CS2024001"
+            className="mt-1"
+            required
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            Password will be auto-generated as: {formData.rollNo || 'RollNo'}@XXXX
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>Department</Label>
+            <Input
+              type="text"
+              value={formData.department}
+              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              placeholder="e.g., Computer Science"
+              className="mt-1"
+              required
+            />
+          </div>
+          <div>
+            <Label>Semester</Label>
+            <Select value={String(formData.semester)} onValueChange={(val) => setFormData({ ...formData, semester: parseInt(val) })}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                  <SelectItem key={sem} value={String(sem)}>
+                    Semester {sem}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading} className="bg-sky-600 hover:bg-sky-700">
+            {loading ? 'Creating...' : 'Create Student'}
+          </Button>
+        </div>
+      </form>
+    </>
   );
 }
 
@@ -453,7 +475,6 @@ function EnrollModal({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   
-  // Face enrollment state
   const webcamRef = useRef<Webcam>(null);
   const [faceApiReady, setFaceApiReady] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
@@ -465,11 +486,6 @@ function EnrollModal({
   const enrollFingerprintMutation = useMutation(api.students.enrollFingerprint);
   const enrollFaceMutation = useMutation(api.students.enrollFace);
 
-  function cn(...classes: (string | boolean | undefined)[]): string {
-    return classes.filter(Boolean).join(' ');
-  }
-
-  // Initialize face API when tab is face
   useEffect(() => {
     if (tab === 'face') {
       initializeFaceAPI().then((ready) => {
@@ -478,7 +494,6 @@ function EnrollModal({
     }
   }, [tab]);
 
-  // Face detection loop with detailed status
   useEffect(() => {
     if (!cameraActive || !faceApiReady || tab !== 'face') return;
 
@@ -497,7 +512,6 @@ function EnrollModal({
         
         if (detection.error) {
           setFaceDetected(false);
-          // Show specific status based on error type
           switch (detection.error.type) {
             case FaceErrorType.NO_FACE:
               setFaceStatus('Position face in circle');
@@ -537,7 +551,6 @@ function EnrollModal({
       return;
     }
 
-    // Get the video element from the webcam component
     const video = webcam.video;
     if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
       setError('Camera is still initializing. Please wait a moment and try again.');
@@ -548,11 +561,9 @@ function EnrollModal({
     setError('');
 
     try {
-      console.log('[EnrollFace] Extracting embedding from video:', video.videoWidth, 'x', video.videoHeight);
       const result = await extractFaceEmbedding(video);
 
       if (!result.success || !result.embedding) {
-        // Use the detailed error message from the service
         const errorMsg = result.error 
           ? `${result.error.message}. ${result.error.suggestion}`
           : 'Failed to capture face. Please try again.';
@@ -560,8 +571,6 @@ function EnrollModal({
         setLoading(false);
         return;
       }
-
-      console.log('[EnrollFace] Got embedding with', result.embedding.length, 'dimensions');
       
       await enrollFaceMutation({
         id: studentId,
@@ -586,7 +595,6 @@ function EnrollModal({
     setError('');
     
     try {
-      // Use the fingerprint service to capture
       const result = await enrollFingerprint(student.rollNo);
       
       if (result.success && result.hash) {
@@ -608,215 +616,203 @@ function EnrollModal({
 
   if (!student) {
     return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-content max-w-lg" onClick={(e) => e.stopPropagation()}>
-          <div className="p-6 text-center">
-            <Loader2 className="w-8 h-8 mx-auto animate-spin text-blue-600" />
-          </div>
-        </div>
+      <div className="p-6 text-center">
+        <Loader2 className="w-8 h-8 mx-auto animate-spin text-sky-600" />
       </div>
     );
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content max-w-lg" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Enroll Biometrics
-          </h2>
-          <p className="text-gray-600 mb-4">
-            Student: {student.name} ({student.rollNo})
-          </p>
+    <>
+      <DialogHeader>
+        <DialogTitle>Enroll Biometrics</DialogTitle>
+        <p className="text-slate-600 text-sm">
+          Student: {student.name} ({student.rollNo})
+        </p>
+      </DialogHeader>
 
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 mb-4">
-            <button
-              onClick={() => { setTab('face'); setCameraActive(false); setError(''); setMessage(''); }}
-              className={cn(
-                'px-4 py-2 font-medium border-b-2 -mb-px',
-                tab === 'face'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              )}
-            >
-              <Camera className="w-4 h-4 inline mr-2" />
-              Face
-            </button>
-            <button
-              onClick={() => { setTab('fingerprint'); setCameraActive(false); setError(''); setMessage(''); }}
-              className={cn(
-                'px-4 py-2 font-medium border-b-2 -mb-px',
-                tab === 'fingerprint'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              )}
-            >
-              <Fingerprint className="w-4 h-4 inline mr-2" />
-              Fingerprint
-            </button>
-          </div>
+      <Tabs value={tab} onValueChange={(val) => { setTab(val as 'face' | 'fingerprint'); setCameraActive(false); setError(''); setMessage(''); }}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="face" className="flex items-center gap-2">
+            <Camera className="w-4 h-4" />
+            Face
+          </TabsTrigger>
+          <TabsTrigger value="fingerprint" className="flex items-center gap-2">
+            <Fingerprint className="w-4 h-4" />
+            Fingerprint
+          </TabsTrigger>
+        </TabsList>
 
-          {error && (
-            <div className="alert-error mb-4">
-              <AlertCircle className="w-5 h-5" />
-              <span>{error}</span>
-            </div>
-          )}
+        {error && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-          {message && (
-            <div className="alert-success mb-4">
-              <Check className="w-5 h-5" />
-              <span>{message}</span>
-            </div>
-          )}
+        {message && (
+          <Alert className="mt-4 bg-emerald-50 border-emerald-200">
+            <Check className="h-4 w-4 text-emerald-600" />
+            <AlertDescription className="text-emerald-800">{message}</AlertDescription>
+          </Alert>
+        )}
 
-          {tab === 'face' ? (
-            <div className="space-y-4">
-              {!cameraActive ? (
-                <div className="text-center py-8">
-                  <div className="w-32 h-32 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                    <Camera className="w-12 h-12 text-gray-400" />
-                  </div>
-                  <p className="text-gray-600 mb-4">
-                    Capture the student's face for attendance verification.
-                  </p>
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    <span
-                      className={cn(
-                        'badge',
-                        student.hasFaceData ? 'badge-success' : 'badge-gray'
-                      )}
-                    >
-                      {student.hasFaceData ? 'Enrolled' : 'Not Enrolled'}
-                    </span>
-                  </div>
-                  {student.hasFaceData && !showReenrollConfirm ? (
-                    <div className="space-y-3">
-                      <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
-                        This student already has face data enrolled. Re-enrolling will replace the existing data.
-                      </p>
-                      <button
-                        onClick={() => setShowReenrollConfirm(true)}
-                        className="btn-secondary"
-                      >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Re-enroll Face
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setCameraActive(true);
-                        setShowReenrollConfirm(false);
-                      }}
-                      className="btn-primary"
-                    >
-                      <Camera className="w-4 h-4 mr-2" />
-                      {student.hasFaceData ? 'Continue Re-enrollment' : 'Start Camera'}
-                    </button>
-                  )}
+        <TabsContent value="face" className="mt-4">
+          {!cameraActive ? (
+            <div className="text-center py-8">
+              <div className="w-32 h-32 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <Camera className="w-12 h-12 text-slate-400" />
+              </div>
+              <p className="text-slate-600 mb-4">
+                Capture the student's face for attendance verification.
+              </p>
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Badge variant={student.hasFaceData ? 'default' : 'secondary'} className={student.hasFaceData ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : ''}>
+                  {student.hasFaceData ? 'Enrolled' : 'Not Enrolled'}
+                </Badge>
+              </div>
+              {student.hasFaceData && !showReenrollConfirm ? (
+                <div className="space-y-3">
+                  <Alert className="bg-amber-50 border-amber-200 text-left">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-amber-800">
+                      This student already has face data enrolled. Re-enrolling will replace the existing data.
+                    </AlertDescription>
+                  </Alert>
+                  <Button variant="outline" onClick={() => setShowReenrollConfirm(true)}>
+                    <Camera className="w-4 h-4 mr-2" />
+                    Re-enroll Face
+                  </Button>
                 </div>
               ) : (
-                <>
-                  <div className="relative bg-gray-900 rounded-xl overflow-hidden aspect-video">
-                    <Webcam
-                      ref={webcamRef}
-                      audio={false}
-                      videoConstraints={{
-                        width: 640,
-                        height: 480,
-                        facingMode: 'user',
-                      }}
-                      className="w-full h-full object-cover"
-                      mirrored
-                    />
-                    {/* Face guide overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div
-                        className={cn(
-                          'w-32 h-40 border-4 rounded-full transition-colors',
-                          faceDetected ? 'border-green-400' : 'border-white/50'
-                        )}
-                      />
-                    </div>
-                    {/* Status indicator */}
-                    <div className="absolute bottom-2 left-2 right-2">
-                      <div
-                        className={cn(
-                          'px-2 py-1 rounded text-xs font-medium text-center',
-                          faceDetected ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
-                        )}
-                      >
-                        {faceStatus}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCameraActive(false)}
-                      className="btn-secondary flex-1"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleEnrollFace}
-                      disabled={!faceDetected || loading}
-                      className={cn(
-                        'flex-1 flex items-center justify-center gap-2',
-                        faceDetected && !loading
-                          ? 'btn-primary'
-                          : 'bg-gray-200 text-gray-500 cursor-not-allowed rounded-lg py-2'
-                      )}
-                    >
-                      {loading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="w-4 h-4" />
-                          Capture & Save
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </>
+                <Button onClick={() => { setCameraActive(true); setShowReenrollConfirm(false); }} className="bg-sky-600 hover:bg-sky-700">
+                  <Camera className="w-4 h-4 mr-2" />
+                  {student.hasFaceData ? 'Continue Re-enrollment' : 'Start Camera'}
+                </Button>
               )}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <div className="w-32 h-32 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <Fingerprint className="w-12 h-12 text-gray-400" />
+            <>
+              <div className="relative bg-slate-900 rounded-xl overflow-hidden aspect-video">
+                <Webcam
+                  ref={webcamRef}
+                  audio={false}
+                  videoConstraints={{
+                    width: 640,
+                    height: 480,
+                    facingMode: 'user',
+                  }}
+                  className="w-full h-full object-cover"
+                  mirrored
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div
+                    className={cn(
+                      'w-32 h-40 border-4 rounded-full transition-colors',
+                      faceDetected ? 'border-emerald-400' : 'border-white/50'
+                    )}
+                  />
+                </div>
+                <div className="absolute bottom-2 left-2 right-2">
+                  <div
+                    className={cn(
+                      'px-2 py-1 rounded text-xs font-medium text-center',
+                      faceDetected ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
+                    )}
+                  >
+                    {faceStatus}
+                  </div>
+                </div>
               </div>
-              <p className="text-gray-600 mb-4">
-                Fingerprint enrollment uses simulated tokens.
-                <br />
-                Click below to generate a fingerprint token.
-              </p>
-              <button
-                onClick={handleEnrollFingerprint}
-                disabled={loading || student.hasFingerprint}
-                className="btn-primary"
-              >
-                {loading
-                  ? 'Enrolling...'
-                  : student.hasFingerprint
-                  ? 'Already Enrolled'
-                  : 'Enroll Fingerprint'}
-              </button>
-            </div>
-          )}
 
-          <div className="flex justify-end pt-4 border-t border-gray-200 mt-4">
-            <button onClick={onClose} className="btn-secondary">
-              Close
-            </button>
+              <div className="flex gap-2 mt-4">
+                <Button variant="outline" onClick={() => setCameraActive(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleEnrollFace}
+                  disabled={!faceDetected || loading}
+                  className={cn('flex-1', faceDetected && !loading ? 'bg-sky-600 hover:bg-sky-700' : '')}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4 mr-2" />
+                      Capture & Save
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="fingerprint" className="mt-4">
+          <div className="text-center py-8">
+            <div className="w-32 h-32 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <Fingerprint className="w-12 h-12 text-slate-400" />
+            </div>
+            
+            <p className="text-slate-600 mb-4">
+              Click below to enroll fingerprint for this student.
+            </p>
+
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Badge variant={student.hasFingerprint ? 'default' : 'secondary'} className={student.hasFingerprint ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' : ''}>
+                {student.hasFingerprint ? 'Enrolled' : 'Not Enrolled'}
+              </Badge>
+            </div>
+
+            {student.hasFingerprint ? (
+              <div className="space-y-3">
+                <Alert className="bg-amber-50 border-amber-200 text-left">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    This student already has fingerprint data enrolled. Re-enrolling will replace the existing data.
+                  </AlertDescription>
+                </Alert>
+                <Button variant="outline" onClick={handleEnrollFingerprint} disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Enrolling...
+                    </>
+                  ) : (
+                    <>
+                      <Fingerprint className="w-4 h-4 mr-2" />
+                      Re-enroll Fingerprint
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={handleEnrollFingerprint} disabled={loading} className="bg-purple-600 hover:bg-purple-700">
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Enrolling...
+                  </>
+                ) : (
+                  <>
+                    <Fingerprint className="w-4 h-4 mr-2" />
+                    Enroll Fingerprint
+                  </>
+                )}
+              </Button>
+            )}
           </div>
-        </div>
+        </TabsContent>
+      </Tabs>
+
+      <div className="flex justify-end pt-4 border-t border-slate-200 mt-4">
+        <Button variant="outline" onClick={onClose}>
+          Close
+        </Button>
       </div>
-    </div>
+    </>
   );
 }

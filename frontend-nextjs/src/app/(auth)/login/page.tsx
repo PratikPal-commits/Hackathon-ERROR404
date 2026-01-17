@@ -3,10 +3,16 @@
 import { useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Shield, Eye, EyeOff, AlertCircle, Loader2, GraduationCap, Users, UserCog } from 'lucide-react';
 import { useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import { useAuth } from '@/app/providers';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Get the default dashboard for a role
 function getDashboardForRole(role: string): string {
@@ -88,139 +94,153 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-primary-100 flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-sky-100 flex items-center justify-center py-12 px-4">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-sky-200/30 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-sky-300/20 rounded-full blur-3xl" />
+      </div>
+      
+      <div className="max-w-md w-full relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-3">
-            <div className="w-12 h-12 bg-primary-600 rounded-xl flex items-center justify-center">
-              <Shield className="w-7 h-7 text-white" />
+          <Link href="/" className="inline-flex items-center gap-3 group">
+            <div className="w-14 h-14 bg-gradient-to-br from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/25 group-hover:shadow-sky-500/40 transition-shadow">
+              <Shield className="w-8 h-8 text-white" />
             </div>
-            <span className="text-2xl font-bold text-gray-900">SmartAttend</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+              SmartAttend
+            </span>
           </Link>
         </div>
 
         {/* Login Card */}
-        <div className="card p-8">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Welcome Back</h1>
-            <p className="text-gray-600 mt-1">
+        <Card className="shadow-xl shadow-gray-200/50 border-0 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-2xl font-bold text-gray-900">Welcome Back</CardTitle>
+            <CardDescription className="text-gray-600">
               {suggestedRole === 'teacher'
                 ? 'Sign in to the Teacher Portal'
                 : suggestedRole === 'student'
                 ? 'Sign in to the Student Portal'
                 : 'Sign in to your account'}
-            </p>
-          </div>
+            </CardDescription>
+          </CardHeader>
 
-          {error && (
-            <div className="alert-error mb-4">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
+          <CardContent className="space-y-6">
+            {error && (
+              <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="label">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="input"
-                placeholder="you@example.com"
-                required
-                autoComplete="email"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="label">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  name="password"
-                  value={formData.password}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
                   onChange={handleChange}
-                  className="input pr-10"
-                  placeholder="Enter your password"
+                  placeholder="you@example.com"
                   required
-                  autoComplete="current-password"
+                  autoComplete="email"
+                  className="h-11 bg-white"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Enter your password"
+                    required
+                    autoComplete="current-password"
+                    className="h-11 pr-10 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-11 bg-sky-600 hover:bg-sky-700 text-white font-medium shadow-lg shadow-sky-600/25 hover:shadow-sky-600/40 transition-all"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+
+            <div className="text-center">
+              <Link href="/" className="text-sky-600 hover:text-sky-700 text-sm font-medium hover:underline transition-colors">
+                Back to Home
+              </Link>
             </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="btn-primary w-full py-3 disabled:opacity-50"
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="loading-spinner w-5 h-5"></span>
-                  Signing in...
-                </span>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <Link href="/" className="text-primary-600 hover:underline text-sm">
-              Back to Home
-            </Link>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Demo Credentials */}
-        <div className="mt-6 card p-4">
-          <p className="text-sm text-gray-600 text-center mb-3">Quick Demo Login:</p>
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              onClick={() => handleDemoLogin('admin')}
-              disabled={isLoading}
-              className="btn-outline text-sm py-2"
-            >
-              Admin
-            </button>
-            <button
-              onClick={() => handleDemoLogin('faculty')}
-              disabled={isLoading}
-              className="btn-outline text-sm py-2"
-            >
-              Teacher
-            </button>
-            <button
-              onClick={() => handleDemoLogin('student')}
-              disabled={isLoading}
-              className="btn-outline text-sm py-2"
-            >
-              Student
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 mt-3 text-center">
-            Make sure to seed the demo data first
-          </p>
-        </div>
+        <Card className="mt-6 shadow-lg shadow-gray-200/30 border-0 bg-white/60 backdrop-blur-sm">
+          <CardContent className="pt-6">
+            <p className="text-sm text-gray-600 text-center mb-4 font-medium">Quick Demo Login</p>
+            <div className="grid grid-cols-3 gap-3">
+              <Button
+                variant="outline"
+                onClick={() => handleDemoLogin('admin')}
+                disabled={isLoading}
+                className="flex flex-col items-center gap-1 h-auto py-3 border-gray-200 hover:border-sky-300 hover:bg-sky-50 transition-all"
+              >
+                <UserCog className="w-5 h-5 text-sky-600" />
+                <span className="text-xs font-medium">Admin</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleDemoLogin('faculty')}
+                disabled={isLoading}
+                className="flex flex-col items-center gap-1 h-auto py-3 border-gray-200 hover:border-sky-300 hover:bg-sky-50 transition-all"
+              >
+                <Users className="w-5 h-5 text-sky-600" />
+                <span className="text-xs font-medium">Teacher</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleDemoLogin('student')}
+                disabled={isLoading}
+                className="flex flex-col items-center gap-1 h-auto py-3 border-gray-200 hover:border-sky-300 hover:bg-sky-50 transition-all"
+              >
+                <GraduationCap className="w-5 h-5 text-sky-600" />
+                <span className="text-xs font-medium">Student</span>
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mt-4 text-center">
+              Make sure to seed the demo data first
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
