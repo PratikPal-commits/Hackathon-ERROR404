@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Shield, Eye, EyeOff, AlertCircle, Loader2, GraduationCap, Users, UserCog } from 'lucide-react';
@@ -23,6 +23,14 @@ function getDashboardForRole(role: string): string {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { setAuth } = useAuth();

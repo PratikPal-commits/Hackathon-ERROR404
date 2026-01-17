@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -27,6 +28,14 @@ function cn(...classes: (string | boolean | undefined)[]): string {
 }
 
 export default function StudentsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-12 h-12 animate-spin text-blue-600" /></div>}>
+      <StudentsPageInner />
+    </Suspense>
+  );
+}
+
+function StudentsPageInner() {
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(searchParams.get('action') === 'add');

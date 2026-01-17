@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -46,6 +46,16 @@ import {
 } from '@/components/ui/dialog';
 
 export default function FacultyPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64">
+      <Loader2 className="w-12 h-12 animate-spin text-sky-600" />
+    </div>}>
+      <FacultyForm />
+    </Suspense>
+  );
+}
+
+function FacultyForm() {
   const searchParams = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'faculty'>('all');

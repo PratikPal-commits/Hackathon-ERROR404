@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
@@ -42,6 +43,14 @@ function getSessionStatusColor(status: string): string {
 }
 
 export default function SessionsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-12 h-12 animate-spin text-blue-600" /></div>}>
+      <SessionsPageInner />
+    </Suspense>
+  );
+}
+
+function SessionsPageInner() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   

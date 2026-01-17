@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
@@ -28,31 +28,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-// Helper functions
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatTime(timeStr: string): string {
-  if (!timeStr) return '';
-  const [hours, minutes] = timeStr.split(':');
-  const h = parseInt(hours);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${minutes} ${ampm}`;
-}
-
-function getSessionStatus(session: any): 'scheduled' | 'active' | 'completed' {
-  if (session.isActive) return 'active';
-  if (!session.isActive && session.attendanceCode) return 'completed';
-  return 'scheduled';
-}
-
 export default function SessionsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64">
+      <Loader2 className="w-12 h-12 animate-spin text-sky-600" />
+    </div>}>
+      <SessionsForm />
+    </Suspense>
+  );
+}
+
+function SessionsForm() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  
+
   const [showModal, setShowModal] = useState(searchParams.get('action') === 'add');
   const [selectedSessionId, setSelectedSessionId] = useState<Id<'sessions'> | null>(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
@@ -60,7 +49,7 @@ export default function SessionsPage() {
   // Convex queries
   const sessions = useQuery(api.sessions.list, {});
   const courses = useQuery(api.courses.list, {});
-  
+
   // Convex mutations
   const activateSession = useMutation(api.sessions.activate);
   const deactivateSession = useMutation(api.sessions.deactivate);
@@ -83,13 +72,39 @@ export default function SessionsPage() {
 
   const loading = sessions === undefined || courses === undefined;
 
+  function formatDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function formatTime(timeStr: string): string {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':');
+    const h = parseInt(hours);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${minutes} ${ampm}`;
+  }
+
+  function getSessionStatus(session: any): 'scheduled' | 'active' | 'completed' {
+    if (session.isActive) return 'active';
+
+    // Only mark as completed if session was activated (has attendance code) and is now inactive
+    if (!session.isActive && session.attendanceCode) return 'completed';
+
+    return 'scheduled';
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="text-lg font-medium text-slate-900">Class Sessions</h2>
-        <Button onClick={() => setShowModal(true)} className="bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/25">
-          <Plus className="w-5 h-5 mr-2" />
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Sessions Management</h2>
+          <p className="text-slate-600">Manage all class sessions across courses</p>
+        </div>
+        <Button onClick={() => setShowModal(true)} className="bg-sky-600 hover:bg-sky-700">
+          <Plus className="w-4 h-4 mr-2" />
           Create Session
         </Button>
       </div>
@@ -100,47 +115,45 @@ export default function SessionsPage() {
           <Loader2 className="w-12 h-12 animate-spin text-sky-600" />
         </div>
       ) : sessions.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">No sessions found</div>
+        <Card>
+          <CardContent className="text-center py-12">
+            <p className="text-slate-500">No sessions found</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
           {sessions.map((session) => {
             const status = getSessionStatus(session);
-            const location = session.roomNo 
+            const location = session.roomNo
               ? `${session.roomNo}${session.building ? ` (${session.building})` : ''}`
               : 'No location';
             return (
-              <Card key={session._id} className="bg-white border-slate-200 shadow-sm">
-                <CardContent className="py-4">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge 
-                          variant={status === 'active' ? 'default' : status === 'scheduled' ? 'secondary' : 'outline'}
+              <Card key={session._id}>
+                <CardContent className="p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Badge
+                          variant={status === 'active' ? 'default' : status === 'completed' ? 'secondary' : 'outline'}
                           className={cn(
                             status === 'active' && 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
-                            status === 'scheduled' && 'bg-sky-100 text-sky-700 hover:bg-sky-100'
+                            status === 'completed' && 'bg-slate-100 text-slate-700 hover:bg-slate-100'
                           )}
                         >
                           {status.toUpperCase()}
                         </Badge>
-                        <h3 className="font-semibold text-slate-900">
+                        <h3 className="text-lg font-semibold text-slate-900">
                           {session.courseCode} - {session.courseName}
                         </h3>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          {formatDate(session.sessionDate)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          {formatTime(session.startTime)} - {formatTime(session.endTime)}
-                        </span>
-                        <span>{location}</span>
+                      <div className="text-sm text-slate-600 space-y-1">
+                        <p><Calendar className="w-4 h-4 inline mr-1" />{formatDate(session.sessionDate)}</p>
+                        <p><Clock className="w-4 h-4 inline mr-1" />{formatTime(session.startTime)} - {formatTime(session.endTime)}</p>
+                        <p className="text-slate-500">Location: {location}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       {status === 'active' && session.attendanceCode && (
                         <AttendanceCodeBadge code={session.attendanceCode} />
                       )}
@@ -168,12 +181,12 @@ export default function SessionsPage() {
                       )}
 
                       <Button
-                        variant="outline"
-                        size="sm"
                         onClick={() => {
                           setSelectedSessionId(session._id);
                           setShowAttendanceModal(true);
                         }}
+                        size="sm"
+                        variant="outline"
                       >
                         <Users className="w-4 h-4 mr-1" />
                         Attendance
@@ -189,7 +202,7 @@ export default function SessionsPage() {
 
       {/* Create Session Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-w-md">
           {courses && (
             <CreateSessionModal
               courses={courses}
@@ -200,8 +213,8 @@ export default function SessionsPage() {
       </Dialog>
 
       {/* Attendance Modal */}
-      <Dialog open={showAttendanceModal && !!selectedSessionId} onOpenChange={(open) => { setShowAttendanceModal(open); if (!open) setSelectedSessionId(null); }}>
-        <DialogContent className="sm:max-w-2xl">
+      <Dialog open={showAttendanceModal} onOpenChange={setShowAttendanceModal}>
+        <DialogContent className="max-w-4xl">
           {selectedSessionId && (
             <AttendanceModal
               sessionId={selectedSessionId}

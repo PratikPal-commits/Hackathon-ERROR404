@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-type Step = 'loading' | 'select_method' | 'qr_scan' | 'face_capture' | 'fingerprint' | 'processing' | 'success' | 'error';
+type Step = 'loading' | 'select_method' | 'qr_scan' | 'face_capture' | 'fingerprint_rollno' | 'fingerprint' | 'processing' | 'success' | 'error';
 
 interface VerificationResult {
   success: boolean;
@@ -46,6 +46,8 @@ export default function KioskAttendancePage() {
   const [cameraError, setCameraError] = useState('');
   const [scannedQR, setScannedQR] = useState<string | null>(null);
   const [scannedStudentRollNo, setScannedStudentRollNo] = useState<string | null>(null);
+  const [fingerprintRollNo, setFingerprintRollNo] = useState('');
+  const [fingerprintRollNoError, setFingerprintRollNoError] = useState('');
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [scannerState, setScannerState] = useState<'idle' | 'scanning' | 'success' | 'error'>('idle');
   const [faceApiReady, setFaceApiReady] = useState(false);
@@ -88,7 +90,7 @@ export default function KioskAttendancePage() {
     if (selectedMethod === 'face_qr') {
       setStep('qr_scan');
     } else {
-      setStep('fingerprint');
+      setStep('fingerprint_rollno');
     }
   };
 
@@ -205,7 +207,23 @@ export default function KioskAttendancePage() {
     }
   };
 
+  const handleFingerprintRollNoSubmit = () => {
+    if (!fingerprintRollNo.trim()) {
+      setFingerprintRollNoError('Please enter your roll number');
+      return;
+    }
+    setFingerprintRollNoError('');
+    setScannedStudentRollNo(fingerprintRollNo.trim());
+    setStep('fingerprint');
+  };
+
   const handleFingerprintVerify = async () => {
+    if (!scannedStudentRollNo) {
+      setError('Please enter your roll number first');
+      setStep('error');
+      return;
+    }
+
     setScannerState('scanning');
     setStep('processing');
 
@@ -221,6 +239,7 @@ export default function KioskAttendancePage() {
 
       const response = await verifyFingerprintAndMark({
         sessionCode: code,
+        rollNo: scannedStudentRollNo,
         fingerprintHash: captureResult.hash,
         deviceInfo: navigator.userAgent,
         ipAddress: 'kiosk',
@@ -474,6 +493,66 @@ export default function KioskAttendancePage() {
               <Button onClick={handleCaptureFace} size="lg" className="flex-1 bg-sky-600 hover:bg-sky-700 shadow-lg shadow-sky-600/25">
                 <Camera className="w-5 h-5 mr-2" />
                 Capture & Verify
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'fingerprint_rollno' && (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-2">Enter Your Roll Number</h2>
+              <p className="text-slate-400">Enter your student ID to proceed with fingerprint verification</p>
+            </div>
+
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardContent className="py-8">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                      <Fingerprint className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="rollno" className="block text-sm font-medium text-slate-300 mb-1">
+                        Roll Number
+                      </label>
+                      <input
+                        id="rollno"
+                        type="text"
+                        value={fingerprintRollNo}
+                        onChange={(e) => {
+                          setFingerprintRollNo(e.target.value);
+                          setFingerprintRollNoError('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleFingerprintRollNoSubmit();
+                          }
+                        }}
+                        placeholder="Enter your roll number (e.g. CS001)"
+                        className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        autoFocus
+                      />
+                      {fingerprintRollNoError && (
+                        <p className="text-red-400 text-sm mt-1">{fingerprintRollNoError}</p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    This identifies you in the system before fingerprint verification
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex gap-3">
+              <Button onClick={handleReset} variant="secondary" size="lg" className="flex-1 bg-slate-700 hover:bg-slate-600 text-white border-0">
+                <ArrowLeft className="w-5 h-5 mr-2" />
+                Back
+              </Button>
+              <Button onClick={handleFingerprintRollNoSubmit} size="lg" className="flex-1 bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-600/25">
+                <Fingerprint className="w-5 h-5 mr-2" />
+                Continue to Fingerprint
               </Button>
             </div>
           </div>

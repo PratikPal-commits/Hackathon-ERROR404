@@ -158,6 +158,41 @@ export const deactivate = mutation({
       throw new Error("Session not found");
     }
 
+    // Get all enrolled students for this course
+    const enrollments = await ctx.db
+      .query("courseEnrollments")
+      .withIndex("by_course", (q) => q.eq("courseId", session.courseId))
+      .collect();
+
+    // Get existing attendance records for this session
+    const attendances = await ctx.db
+      .query("attendance")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.id))
+      .collect();
+
+    const attendedStudentIds = new Set(attendances.map(a => a.studentId));
+
+    // Mark absent for students who are enrolled but haven't attended
+    const absentInserts = enrollments
+      .filter(enrollment => !attendedStudentIds.has(enrollment.studentId))
+      .map(enrollment => 
+        ctx.db.insert("attendance", {
+          studentId: enrollment.studentId,
+          sessionId: args.id,
+          status: "absent",
+          verificationMethod: "manual", // Marked automatically when session ends
+          overallConfidence: 0,
+          markedAt: Date.now(),
+          isKiosk: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        })
+      );
+
+    // Wait for all absent records to be inserted
+    await Promise.all(absentInserts);
+
+    // Deactivate the session
     await ctx.db.patch(args.id, {
       isActive: false,
       updatedAt: Date.now(),

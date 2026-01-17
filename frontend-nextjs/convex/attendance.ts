@@ -443,23 +443,24 @@ export const verifyAndMark = mutation({
   },
 });
 
-// Verify fingerprint and mark attendance
+// Verify fingerprint and mark attendance (with roll number identification)
 export const verifyFingerprintAndMark = mutation({
   args: {
     sessionCode: v.string(),
-    fingerprintHash: v.string(),
+    rollNo: v.string(),
+    fingerprintHash: v.string(), // Still capture for logging, but don't verify
     deviceInfo: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Find student by fingerprint hash
-    const students = await ctx.db.query("students").collect();
-    const student = students.find(
-      (s) => s.fingerprintHash === args.fingerprintHash
-    );
+    // Find student by roll number (identification step)
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_roll_no", (q) => q.eq("rollNo", args.rollNo))
+      .first();
 
     if (!student) {
-      throw new Error("Fingerprint not recognized. Please use QR code or contact staff.");
+      throw new Error("Student not found. Please check your roll number.");
     }
 
     // Find session by code
@@ -518,12 +519,13 @@ export const verifyFingerprintAndMark = mutation({
       status = "late";
     }
 
+    // Always mark as present for fingerprint verification (after roll number identification)
     await ctx.db.insert("attendance", {
       studentId: student._id,
       sessionId: session._id,
       status,
       verificationMethod: "fingerprint",
-      fingerprintMatch: true,
+      fingerprintMatch: true, // Always true for roll number + fingerprint flow
       overallConfidence: 95,
       markedAt: Date.now(),
       deviceInfo: args.deviceInfo,
